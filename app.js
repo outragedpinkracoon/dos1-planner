@@ -4,7 +4,8 @@
 var R = window.DOS_RULES,
     ABILITIES = window.DOS_ABILITIES,
     TALENTS = window.DOS_TALENTS,
-    PRESETS = window.DOS_PRESETS;
+    PRESETS = window.DOS_PRESETS,
+    SKILLS = window.DOS_SKILLS;
 
 var STORE_KEY = 'dos1-planner:slice1';
 
@@ -20,7 +21,8 @@ function blankState() {
     attrs: attrs,
     abilities: {},   // id -> rank
     talents: [],     // names
-    skills: []       // reserved for slice 2
+    skills: [],      // learned skill names
+    granted: []      // preset-given skills - the game grants these regardless of slots
   };
 }
 
@@ -38,6 +40,7 @@ function load() {
     base.abilities = s.abilities || {};
     base.talents = Array.isArray(s.talents) ? s.talents : [];
     base.skills = Array.isArray(s.skills) ? s.skills : [];
+    base.granted = Array.isArray(s.granted) ? s.granted : [];
     return base;
   } catch (e) { return blankState(); }
 }
@@ -111,6 +114,95 @@ function pruneTalents() {
     return t ? talentMet(t).ok : false;
   });
   if (kept.length !== state.talents.length) state.talents = kept;
+}
+
+// ---------------------------------------------------------------- skills
+var TIERS = ['novice', 'adept', 'master'];
+
+function schoolAbilities() {
+  return ABILITIES.filter(function (a) { return a.school; });
+}
+
+// Slots granted at the current rank, per tier.
+function slotsFor(id) {
+  return R.skillSlots[clamp(rank(id), 0, R.skillSlots.length - 1)];
+}
+
+function isGranted(n) { return state.granted.indexOf(n) >= 0; }
+
+// Granted skills sit outside the slot economy, so they are not counted here.
+function knownIn(schoolId, tier) {
+  return state.skills.filter(function (n) {
+    if (isGranted(n)) return false;
+    var s = skillByName(n);
+    return s && s.s === schoolId && s.t === tier;
+  }).length;
+}
+
+var _skillIndex = null;
+function skillByName(n) {
+  if (!_skillIndex) {
+    _skillIndex = {};
+    SKILLS.forEach(function (s) { _skillIndex[s.n] = s; });
+  }
+  return _skillIndex[n];
+}
+
+function isKnown(n) { return state.skills.indexOf(n) >= 0; }
+
+// Why can't I learn this? null when it is learnable.
+function skillLock(s) {
+  if (rank(s.s) < 1) {
+    var ab = ABILITIES.find(function (a) { return a.id === s.s; });
+    return 'Requires ' + (ab ? ab.name : s.s) + ' 1';
+  }
+  var slots = slotsFor(s.s)[s.t];
+  if (slots <= 0) {
+    var need = R.skillSlots.findIndex(function (row) { return row[s.t] > 0; });
+    var ab2 = ABILITIES.find(function (a) { return a.id === s.s; });
+    return 'Needs ' + (ab2 ? ab2.name : s.s) + ' ' + need + ' for ' + s.t + ' skills';
+  }
+  if (knownIn(s.s, s.t) >= slots) {
+    return 'No ' + s.t + ' slots left (' + slots + '/' + slots + ')';
+  }
+  return null;
+}
+
+// Skills can be used below their recommended rank at +2 AP per rank short.
+function apPenalty(s) {
+  var short = Math.max(0, (s.rank || 1) - rank(s.s));
+  return short * 2;
+}
+
+// Attribute requirement is a soft scaling rule, not a hard gate: below the
+// listed value the skill is less effective, it is not forbidden.
+function attrShortfall(s) {
+  if (!s.attr) return null;
+  var out = [];
+  Object.keys(s.attr).forEach(function (k) {
+    var have = state.attrs[k], need = s.attr[k];
+    if (have < need) {
+      var at = R.attributes.list.find(function (a) { return a.id === k; });
+      out.push((at ? at.name : k) + ' ' + have + '/' + need);
+    }
+  });
+  return out.length ? out : null;
+}
+
+// Dropping a rank can leave you over your slot allowance. Trim the overflow
+// rather than show an illegal loadout.
+function pruneSkills() {
+  var kept = [];
+  var used = {};
+  state.skills.forEach(function (n) {
+    var s = skillByName(n);
+    if (!s) return;
+    if (isGranted(n)) { kept.push(n); return; }
+    var key = s.s + ':' + s.t;
+    used[key] = used[key] || 0;
+    if (used[key] < slotsFor(s.s)[s.t]) { used[key]++; kept.push(n); }
+  });
+  if (kept.length !== state.skills.length) state.skills = kept;
 }
 
 // ---------------------------------------------------------------- render
@@ -214,12 +306,96 @@ function renderTalents() {
   });
 }
 
+function renderSkills() {
+  var q = (el.skillSearch.value || '').trim().toLowerCase(),
+      onlyLearnable = el.skillFilter.checked;
+
+  el.skillList.innerHTML = '';
+  var shown = 0;
+
+  schoolAbilities().forEach(function (ab) {
+    var r = rank(ab.id), slots = slotsFor(ab.id);
+
+    var pool = SKILLS.filter(function (s) { return s.s === ab.id; });
+    var visible = pool.filter(function (s) {
+      if (q && (s.n + ' ' + s.d).toLowerCase().indexOf(q) < 0) return false;
+      if (onlyLearnable && !isKnown(s.n) && skillLock(s)) return false;
+      return true;
+    });
+    if (!visible.length) return;
+    shown += visible.length;
+
+    var box = document.createElement('div');
+    box.className = 'school' + (r === 0 ? ' rank0' : '');
+    // open by default when you have the school, or when a search is narrowing things
+    if (r > 0 || q) box.classList.add('open');
+    box.dataset.school = ab.id;
+
+    var head = '<div class="school-head">' +
+      '<span class="school-caret">&#9654;</span>' +
+      '<span class="school-title">' + ab.name + '</span>' +
+      '<span class="school-rank">' + (r ? 'RANK ' + r : 'NOT TAKEN') + '</span>' +
+    '</div>';
+
+    var slotRow = '<div class="slots">' + TIERS.map(function (t) {
+      var cap = slots[t], have = knownIn(ab.id, t);
+      return '<span class="slot' + (cap === 0 ? ' none' : '') +
+             (cap > 0 && have >= cap ? ' full' : '') + '">' +
+        '<span class="slot-tier">' + t + '</span>' +
+        '<span class="slot-num">' + (cap === 0 ? '&mdash;' : have + '/' + cap) + '</span>' +
+      '</span>';
+    }).join('') + '</div>';
+
+    var body = '<div class="school-body">';
+    TIERS.forEach(function (t) {
+      var inTier = visible.filter(function (s) { return s.t === t; });
+      if (!inTier.length) return;
+      body += '<div class="tier-label">' + t + '</div>';
+      inTier.forEach(function (s) {
+        var known = isKnown(s.n),
+            granted = isGranted(s.n),
+            lock = known ? null : skillLock(s),
+            pen = apPenalty(s),
+            short = attrShortfall(s);
+
+        var cost = (s.ap + pen) + ' AP';
+        if (pen) cost += ' <span class="skill-ap-pen">(+' + pen + ')</span>';
+        cost += ' &middot; ' + (s.cd === 0 ? '1/combat' : 'CD ' + s.cd);
+
+        body += '<div class="skill' + (known ? ' known' : '') + (granted ? ' granted' : '') + (lock ? ' locked' : '') + '"' +
+                ' data-skill="' + s.n.replace(/"/g, '&quot;') + '">' +
+          '<div class="skill-top">' +
+            '<span class="skill-name">' + s.n +
+              (granted ? '<span class="granted-tag">class</span>' : '') +
+              (s.unverified ? '<span class="unverified" title="Not listed on the fextralife tier pages - treat as unconfirmed">&#9888;</span>' : '') +
+            '</span>' +
+            '<span class="skill-cost">' + cost + '</span>' +
+          '</div>' +
+          '<div class="skill-desc">' + s.d + '</div>' +
+          (short ? '<div class="skill-lock">Under-attributed: ' + short.join(', ') + ' &mdash; reduced effect</div>' : '') +
+          (lock ? '<div class="skill-lock">' + lock + '</div>' : '') +
+          '<div class="skill-src">' + s.src + '</div>' +
+        '</div>';
+      });
+    });
+    body += '</div>';
+
+    box.innerHTML = head + slotRow + body;
+    el.skillList.appendChild(box);
+  });
+
+  if (!shown) el.skillList.innerHTML = '<div class="empty">No skills match.</div>';
+  el.skillCount.textContent = state.skills.length + ' known';
+}
+
 function renderAll() {
   pruneTalents();
+  pruneSkills();
   renderPools();
   renderAttrs();
   renderAbilities();
   renderTalents();
+  renderSkills();
   el.levelOut.textContent = state.level;
   el.levelSlider.value = state.level;
   el.presetSelect.value = state.preset;
@@ -241,6 +417,9 @@ function applyPreset(id) {
   fresh.abilities = Object.assign({}, p.abilities || {});
   fresh.talents = (p.talents || []).slice();
   fresh.skills = (p.skills || []).slice();
+  // A class hands you its starting skills even when your rank grants no slot for
+  // them - Fighter opens with Whirlwind at Man-at-Arms 1, which has no adept slot.
+  fresh.granted = (p.skills || []).slice();
   state = fresh;
   renderAll();
 }
@@ -301,6 +480,23 @@ function bind() {
   });
   el.talentFilter.addEventListener('change', renderTalents);
 
+  // skills
+  el.skillList.addEventListener('click', function (e) {
+    var head = e.target.closest('.school-head');
+    if (head) { head.parentNode.classList.toggle('open'); return; }
+
+    var node = e.target.closest('.skill'); if (!node) return;
+    if (node.classList.contains('granted')) return;   // class-given, not yours to drop
+    var name = node.dataset.skill,
+        i = state.skills.indexOf(name);
+    if (i >= 0) { state.skills.splice(i, 1); renderAll(); return; }
+    if (node.classList.contains('locked')) return;
+    state.skills.push(name);
+    renderAll();
+  });
+  el.skillSearch.addEventListener('input', renderSkills);
+  el.skillFilter.addEventListener('change', renderSkills);
+
   // reset
   el.resetBtn.addEventListener('click', function () {
     if (!confirm('Clear this build and start over?')) return;
@@ -313,7 +509,8 @@ function bind() {
 function init() {
   ['presetSelect','presetBlurb','applyPreset','levelSlider','levelOut',
    'poolAttr','poolAbil','poolTal','attrList','abilList','talentList',
-   'talentFilter','rulesNotes','resetBtn'
+   'talentFilter','rulesNotes','resetBtn',
+   'skillList','skillSearch','skillFilter','skillCount'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   el.levelSlider.max = R.planLevel;

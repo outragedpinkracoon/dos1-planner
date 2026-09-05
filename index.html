@@ -71,16 +71,25 @@
       <h2>Abilities <span class="sub">rank n costs n points</span></h2>
       <div id="abilList"></div>
     </section>
-  </main>
 
-  <!-- ============ RIGHT: talents ============ -->
-  <aside class="col col-right">
     <section class="panel">
       <h2>Talents</h2>
       <label class="toggle">
         <input type="checkbox" id="talentFilter"> Only show available
       </label>
-      <div id="talentList" class="talent-list"></div>
+      <div id="talentList" class="talent-list talent-grid"></div>
+    </section>
+  </main>
+
+  <!-- ============ RIGHT: skills ============ -->
+  <aside class="col col-right">
+    <section class="panel">
+      <h2>Skills <span class="sub" id="skillCount"></span></h2>
+      <input type="search" id="skillSearch" class="select search" placeholder="Filter skills&hellip;">
+      <label class="toggle">
+        <input type="checkbox" id="skillFilter"> Only show learnable
+      </label>
+      <div id="skillList" class="skill-list"></div>
     </section>
   </aside>
 
