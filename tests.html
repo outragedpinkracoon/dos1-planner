@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DOS1 EE Planner — Tests</title>
-<link rel="stylesheet" href="https://unpkg.com/mocha@10.8.2/mocha.css">
+<link rel="stylesheet" href="vendor/mocha.css">
 <style>
 /* Mocha's stylesheet assumes a white page. Recolour it against the planner's
    own tokens, but leave its layout and spacing alone - overriding those means
@@ -86,8 +86,8 @@ body { background: var(--bg); color: var(--text); margin: 0; }
 <!-- Pinned: unpkg resolves bare "chai" to v6, which is ESM-only and defines
      no global, so `const { expect } = chai` throws and no suite registers.
      4.5.0 is the last UMD build. -->
-<script src="https://unpkg.com/chai@4.5.0/chai.js"></script>
-<script src="https://unpkg.com/mocha@10.8.2/mocha.js"></script>
+<script src="vendor/chai.js"></script>
+<script src="vendor/mocha.js"></script>
 
 <!-- The app's data files and app.js, in the same order index.html loads them.
      app.js only touches the DOM on DOMContentLoaded, and this page has none of

@@ -11,7 +11,7 @@ because the recipe list is 499 entries deep and the game tells you none of it.
 ```
 open index.html      # build planner
 open crafting.html   # crafting reference
-open tests.html      # test suite (needs a network connection for the CDN)
+open tests.html      # test suite, Mocha/Chai vendored, no network needed
 ```
 
 ## Files
@@ -30,7 +30,8 @@ data/skills.js      130 skills, 8 schools x 3 tiers
 data/presets.js     12 classes + Custom, and 4 companions
 data/recipes.js     499 crafting recipes, generated (see Crafting)
 scripts/verify_craft.py   invariant checks for the crafting page
-tests.html      Mocha + Chai from CDN, loads app.js and runs the suite
+tests.html      Mocha + Chai (vendored), loads app.js and runs the suite
+vendor/         mocha.js, mocha.css, chai.js — fetched once, committed, no CDN
 test/rules.test.js  progression, gear, talents, pruning, slots
 test/data.test.js   data integrity and preset budgets
 ```
@@ -285,8 +286,9 @@ error. Do not chase it.
 
 ## Testing
 
-`open tests.html` — Mocha and Chai from a CDN, no build step and no Node, the
-same shape as the rest of the project. 79 tests, green in about 20ms.
+`open tests.html` — Mocha and Chai vendored under `vendor/`, no build step, no
+Node, no network. Same shape as the rest of the project. 79 tests, green in
+about 20ms.
 
 | File | Covers |
 |---|---|
@@ -300,11 +302,11 @@ suit the tests. `init()` still runs on `DOMContentLoaded`; on the test page it
 finds none of the planner's elements and bails, which is what leaves the
 functions reachable.
 
-**Both CDN versions are pinned, deliberately.** unpkg resolves a bare `chai`
-specifier to v6, which is ESM-only and defines no global — `const { expect } =
-chai` then throws and takes `mocha.setup()` down with it, so the page renders
-blank with zero tests and no visible error. 4.5.0 is the last UMD build. Don't
-unpin these.
+**Both vendored versions are pinned, deliberately.** `vendor/chai.js` is 4.5.0,
+the last UMD build — anything newer is ESM-only and defines no global, so
+`const { expect } = chai` throws and takes `mocha.setup()` down with it, and
+the page renders blank with zero tests and no visible error. `vendor/mocha.js`
+is 10.8.2. Don't upgrade these without checking the UMD global still exists.
 
 What the tests are actually for is data errors, which is where the bugs have
 been — the Fighter/Whirlwind and Wolgraff/Strength-4 bugs were both found by
