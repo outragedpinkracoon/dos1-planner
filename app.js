@@ -923,6 +923,11 @@ function init() {
    'bagSub','bagHint','bagPeek','bagOpen'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
+  // tests.html loads app.js for its pure functions and has none of these
+  // elements. Bail rather than throw on the first one - craft.js guards its
+  // own init() the same way.
+  if (!el.levelSlider) return;
+
   el.levelSlider.max = R.planLevel;
 
   var gClasses = document.createElement('optgroup');
