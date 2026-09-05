@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DOS1 EE Planner — Tests</title>
+<link rel="stylesheet" href="https://unpkg.com/mocha@10.8.2/mocha.css">
+<style>
+/* Mocha's stylesheet assumes a white page. Recolour it against the planner's
+   own tokens, but leave its layout and spacing alone - overriding those means
+   fighting its specificity, and it gets the density right on its own. */
+:root {
+  --bg: #14171c;
+  --panel: #1c2027;
+  --line: #2e3540;
+  --text: #d8dee9;
+  --dim: #8b95a5;
+  --accent: #c9a227;
+  --ok: #6a9955;
+  --bad: #b4544e;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body { background: var(--bg); color: var(--text); margin: 0; }
+
+.testbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+  padding: 14px 28px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--sans);
+}
+.testbar h1 { font-size: 15px; margin: 0; font-weight: 600; }
+.testbar .sub { color: var(--dim); font-size: 12px; }
+.testbar a { color: var(--accent); text-decoration: none; font-size: 12px; }
+.testbar a:hover { text-decoration: underline; }
+.testbar .spacer { margin-left: auto; }
+
+#mocha { font-family: var(--sans); color: var(--text); }
+#mocha h1, #mocha h2 { color: var(--text); }
+#mocha .suite h1 a, #mocha .suite h2 a { color: var(--accent); }
+#mocha .test.pass h2 { color: var(--text); }
+#mocha .test.pass .duration { display: none; }
+#mocha .test.fail h2 { color: var(--bad); }
+#mocha .test.pending h2 { color: var(--dim); }
+#mocha .test a.replay { color: var(--dim); background: transparent; }
+#mocha .test a.replay:hover { color: var(--accent); }
+
+/* Mocha fixes the stats block to the top-right, where the sticky header now
+   covers it. Push it clear rather than restyling its layout. */
+#mocha-stats {
+  color: var(--dim); font-family: var(--mono);
+  top: 60px; right: 24px;
+}
+#mocha-stats .passes a { color: var(--ok); }
+#mocha-stats .failures a { color: var(--bad); }
+#mocha-stats em { color: var(--text); }
+#mocha-stats canvas { display: none; }
+
+#mocha .test pre {
+  background: #12151a;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--bad);
+  color: #e0a19d;
+  font-family: var(--mono);
+  box-shadow: none;
+}
+#mocha code .comment { color: var(--dim); }
+#mocha-error { color: var(--bad); }
+</style>
+</head>
+<body>
+
+<header class="testbar">
+  <h1>DOS1 EE Planner — Tests</h1>
+  <span class="sub">rules &amp; data invariants</span>
+  <span class="spacer"></span>
+  <a href="index.html">Planner</a>
+  <a href="crafting.html">Crafting</a>
+</header>
+
+<div id="mocha"></div>
+
+<!-- Pinned: unpkg resolves bare "chai" to v6, which is ESM-only and defines
+     no global, so `const { expect } = chai` throws and no suite registers.
+     4.5.0 is the last UMD build. -->
+<script src="https://unpkg.com/chai@4.5.0/chai.js"></script>
+<script src="https://unpkg.com/mocha@10.8.2/mocha.js"></script>
+
+<!-- The app's data files and app.js, in the same order index.html loads them.
+     app.js only touches the DOM on DOMContentLoaded, and this page has none of
+     its elements, so init() bails and leaves the pure functions on
+     window.DOS_TEST. -->
+<script src="data/rules.js"></script>
+<script src="data/abilities.js"></script>
+<script src="data/talents.js"></script>
+<script src="data/skills.js"></script>
+<script src="data/presets.js"></script>
+<script src="app.js"></script>
+
+<script>
+  mocha.setup('bdd');
+  const { expect } = chai;
+</script>
+
+<script src="test/rules.test.js"></script>
+<script src="test/data.test.js"></script>
+
+<script>
+  mocha.run();
+</script>
+
+</body>
+</html>
