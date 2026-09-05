@@ -219,7 +219,7 @@ function talentAbilFloor(id) {
 }
 
 function effRank(id) {
-  return Math.max(rank(id) + gearAbil(id), talentAbilFloor(id));
+  return Math.max(rank(id), talentAbilFloor(id)) + gearAbil(id);
 }
 
 function attrFloor(id) {

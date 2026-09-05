@@ -143,6 +143,13 @@ describe('effective values', function () {
     expect(T.effRank('crafting')).to.equal(3);
   });
 
+  it('adds gear on top of the Scientist floor', function () {
+    // Scientist sets crafting's floor to 1 with 0 ranks paid. Gear should
+    // stack on top of that floor, same as it stacks on top of a paid rank.
+    st({ talents: ['Scientist'], gearAbils: { crafting: 1 } });
+    expect(T.effRank('crafting')).to.equal(2);
+  });
+
   it('leaves non-crafting abilities untouched by Scientist', function () {
     st({ talents: ['Scientist'] });
     expect(T.effRank('geomancer')).to.equal(0);
