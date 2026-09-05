@@ -1,5 +1,7 @@
 # DOS1 EE Build Planner
 
+WE DO NOT USE FUCKING NODE OMG I AM AVOIDING IT BECAUSE IT IS A PIECE OF CRAP!
+
 Two plain pages for **Divinity: Original Sin Enhanced Edition** — a character
 build planner and a crafting reference. No build step, no framework, no
 dependencies; open either in a browser.
@@ -230,20 +232,15 @@ wrong but is what the source says — left alone rather than silently corrected.
 ### Testing
 
 `test/craft.test.js` covers `buildRank` — how the crafting page reads a planner
-build's Crafting and Smithing, including the Scientist talent — and runs in
-`tests.html` with the rest of the suite.
+build's Crafting and Smithing, including the Scientist talent — the matcher
+that decides what a bag can make, and the invariants over `data/recipes.js`
+itself: every ingredient resolves, no raw asset ids survived the cleanup, the
+`craftable` flag agrees with the recipe list, and no recipe is made entirely of
+stations. Regenerating the recipe data needs no hand-checking — re-run the page.
 
-The data invariants below were checked by `scripts/verify_craft.py`, a throwaway
-script since deleted. They still hold, and are worth re-checking by hand after
-any regeneration of `data/recipes.js`:
-
-- brace/paren balance in `craft.js`; every `el.*` resolves to a real `id`
-- every ingredient resolves to an item, every type to a known type,
-  every skill level in range
-- no raw asset ids survived the cleanup
-- the `craftable` flag agrees with the recipe list
-- no recipe is made entirely of stations
-- every CSS class used has a rule (bar the deliberate JS hooks)
+Structural checks on the HTML and CSS (brace balance, every `el.*` resolving to
+a real `id`, every CSS class having a rule) are still throwaway `python3`
+heredocs, since they read the files as text rather than running them.
 
 ## Things that look like bugs but are not
 
@@ -291,21 +288,22 @@ error. Do not chase it.
 ## Testing
 
 `open tests.html` — Mocha and Chai vendored under `vendor/`, no build step, no
-Node, no network. Same shape as the rest of the project. 87 tests, green in
-about 20ms.
+Node, no network. Same shape as the rest of the project. The page reports the
+count and the time; it runs in well under a second.
 
 | File | Covers |
 |---|---|
 | `test/rules.test.js` | pool maths, gear, talent prerequisites, pruning, slots, the soft rules |
 | `test/data.test.js` | data integrity: counts, references, preset budgets, unverified flags |
-| `test/craft.test.js` | `buildRank`: the crafting page's read of a planner build |
+| `test/craft.test.js` | the crafting page: `buildRank`, the bag matcher, recipe data invariants |
 
 The suite reaches into `app.js` through `window.DOS_TEST`, a hook at the foot of
 the IIFE that exposes the pure functions plus a `setState`. Everything is
 otherwise closed over, and the alternative was restructuring working code to
 suit the tests. `init()` still runs on `DOMContentLoaded`; on the test page it
 finds none of the planner's elements and bails, which is what leaves the
-functions reachable.
+functions reachable. `craft.js` has the same hatch under `window.DOS_CRAFT_TEST`,
+guarding its trailing `renderAll()` the same way.
 
 **Both vendored versions are pinned, deliberately.** `vendor/chai.js` is 4.5.0,
 the last UMD build — anything newer is ESM-only and defines no global, so
@@ -327,9 +325,7 @@ change:
 - the four unverified entries keep their flag
 
 What the tests do not cover is rendering — every assertion is against the pure
-functions, and of `craft.js` only `buildRank` is reached. Structural checks on
-the HTML and CSS (`{}`/`()` balance, every `id=` wired, no `el.*` without an
-element) are still throwaway `python3` heredocs.
+functions, on both pages.
 
 `talentMet`'s `req:{attr}` branch is live code that no shipped talent reaches,
 so the tests exercise it with a synthetic talent object rather than skipping it.

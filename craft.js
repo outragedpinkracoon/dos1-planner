@@ -663,6 +663,11 @@ init();
 // craft.js reads it, so it changes no behaviour, but it's a live hook onto
 // the running page, not a sealed test build.
 window.DOS_CRAFT_TEST = {
-  buildRank: buildRank, hasTalent: hasTalent
+  buildRank: buildRank, hasTalent: hasTalent,
+  blank: blank,
+  setState: function (s) { state = s; },
+  slotHave: slotHave, status: status, skillOK: skillOK,
+  skillLevels: skillLevels, ingredientsOf: ingredientsOf,
+  ladderOf: ladderOf, byName: byName, stations: STATIONS
 };
 })();

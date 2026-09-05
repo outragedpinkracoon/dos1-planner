@@ -5,6 +5,7 @@
 'use strict';
 var expect = chai.expect;
 var T = window.DOS_TEST;
+var R = window.DOS_RULES;
 
 // Every test drives the app's own functions against a state it owns, so
 // nothing leaks between tests and localStorage is never touched.
@@ -409,6 +410,296 @@ describe('helpers', function () {
   it('escapes html, since bag names come from editable storage', function () {
     expect(T.escapeHtml('<img src=x onerror="alert(1)">'))
       .to.equal('&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+  });
+});
+
+
+describe('pool boundaries', function () {
+
+  it('gives no level-derived points at level 1', function () {
+    st({ level: 1 });
+    expect(T.attrTotal()).to.equal(R.attributes.creationPoints);
+    expect(T.abilTotal()).to.equal(R.abilityPoints.creationPoints);
+    expect(T.talTotal()).to.equal(R.talents.creationPoints);
+  });
+
+  it('keeps growing to the max level the rules allow', function () {
+    st({ level: R.maxLevel });
+    // 23 is the last talent level, so all six post-creation talents are in.
+    expect(T.talTotal()).to.equal(R.talents.creationPoints + R.talents.gainedAtLevels.length);
+    expect(T.attrTotal()).to.equal(R.attributes.creationPoints + Math.floor(R.maxLevel / 2));
+  });
+
+  it('grants a talent on the level it is gained, not the level after', function () {
+    R.talents.gainedAtLevels.forEach(function (l) {
+      st({ level: l - 1 });
+      var before = T.talTotal();
+      st({ level: l });
+      expect(T.talTotal(), 'talent gained at level ' + l).to.equal(before + 1);
+    });
+  });
+
+  it('stacks both pool talents at once', function () {
+    st({ level: 20, talents: ['Bigger and Better', 'All Skilled Up'] });
+    expect(T.attrTotal()).to.equal(16);
+    expect(T.abilTotal()).to.equal(51);
+  });
+
+  it('counts a granted pool talent, not just a picked one', function () {
+    st({ level: 20, grantedTalents: ['Bigger and Better'] });
+    expect(T.attrTotal()).to.equal(16);
+  });
+
+  it('reports an overspend rather than clamping it', function () {
+    // Companion sheets are authored over budget; the bar shows red, the
+    // maths must not quietly hide it.
+    st({ level: 1, abilities: { geomancer: 5 } });
+    expect(T.abilSpent()).to.equal(15);
+    expect(T.abilSpent()).to.be.above(T.abilTotal());
+  });
+
+  it('charges nothing for an ability sitting at rank 0', function () {
+    st({ abilities: { geomancer: 0, aerotheurge: 0 } });
+    expect(T.abilSpent()).to.equal(0);
+  });
+
+  it('spends nothing on a blank state', function () {
+    st();
+    expect(T.attrSpent()).to.equal(0);
+    expect(T.abilSpent()).to.equal(0);
+    expect(T.talSpent()).to.equal(0);
+  });
+
+  it('charges the documented cumulative cost at every rank', function () {
+    [[0, 0], [1, 1], [2, 3], [3, 6], [4, 10], [5, 15]].forEach(function (p) {
+      expect(T.rankCost(p[0]), 'rank ' + p[0]).to.equal(p[1]);
+    });
+  });
+});
+
+describe('attrFloor edge cases', function () {
+
+  it('falls back to base 5 for attributes the floor does not mention', function () {
+    // Wolgraff's sheet floors Strength only; the rest must still measure
+    // against 5, or the whole sheet reads as overspent.
+    st({ attrFloor: { strength: 4 }, attrs: { strength: 4, dexterity: 5,
+         intelligence: 5, constitution: 5, speed: 5, perception: 5 } });
+    expect(T.attrFloor('strength')).to.equal(4);
+    expect(T.attrFloor('dexterity')).to.equal(R.attributes.base);
+    expect(T.attrSpent()).to.equal(0);
+  });
+
+  it('ignores a floor entry that is not a number', function () {
+    st({ attrFloor: { strength: null } });
+    expect(T.attrFloor('strength')).to.equal(R.attributes.base);
+  });
+
+  it('handles a floor of 0 rather than treating it as absent', function () {
+    st({ attrFloor: { strength: 0 }, attrs: { strength: 5, dexterity: 5,
+         intelligence: 5, constitution: 5, speed: 5, perception: 5 } });
+    expect(T.attrFloor('strength')).to.equal(0);
+    expect(T.attrSpent()).to.equal(5);
+  });
+});
+
+describe('gear edge cases', function () {
+
+  it('never lets gear change what a build costs', function () {
+    st({ abilities: { geomancer: 2 }, attrs: { strength: 8, dexterity: 5,
+         intelligence: 5, constitution: 5, speed: 5, perception: 5 },
+         gearAbils: { geomancer: 3 }, gearAttrs: { strength: 7 } });
+    expect(T.abilSpent()).to.equal(3);
+    expect(T.attrSpent()).to.equal(3);
+  });
+
+  it('treats a zero gear bonus as no bonus', function () {
+    st({ attrs: { strength: 7, dexterity: 5, intelligence: 5,
+         constitution: 5, speed: 5, perception: 5 }, gearAttrs: { strength: 0 } });
+    expect(T.effAttr('strength')).to.equal(7);
+  });
+
+  it('clamps an over-rank-5 effective rank down to the slot table', function () {
+    // effRank can exceed 5 through gear plus Scientist; the slot table has
+    // no row past 5 and must not read off its end.
+    st({ abilities: { crafting: 5 }, gearAbils: { crafting: 3 }, talents: ['Scientist'] });
+    expect(T.effRank('crafting')).to.equal(9);
+    expect(T.slotsFor('crafting')).to.deep.equal(R.skillSlots[R.skillSlots.length - 1]);
+  });
+
+  it('clamps a negative effective rank up to the rank-0 row', function () {
+    st({ gearAbils: { geomancer: -3 } });
+    expect(T.effRank('geomancer')).to.equal(-3);
+    expect(T.slotsFor('geomancer')).to.deep.equal(R.skillSlots[0]);
+  });
+});
+
+describe('skill lock boundaries', function () {
+
+  function skillAt(school, tier) {
+    return window.DOS_SKILLS.find(function (s) { return s.s === school && s.t === tier; });
+  }
+
+  it('opens the master tier at rank 4 and not at rank 3', function () {
+    var s = skillAt('geomancer', 'master');
+    st({ abilities: { geomancer: 3 } });
+    expect(T.skillLock(s)).to.be.a('string');
+    st({ abilities: { geomancer: 4 } });
+    expect(T.skillLock(s)).to.equal(null);
+  });
+
+  it('unlocks a tier on gear rank alone, with no points paid', function () {
+    var s = skillAt('geomancer', 'adept');
+    st({ gearAbils: { geomancer: 2 } });
+    expect(T.skillLock(s)).to.equal(null);
+  });
+
+  it('frees the last slot again when a skill is removed', function () {
+    var master = window.DOS_SKILLS.filter(function (s) {
+      return s.s === 'geomancer' && s.t === 'master';
+    });
+    st({ abilities: { geomancer: 4 }, skills: [master[0].n] });   // 1 master slot at rank 4
+    expect(T.skillLock(master[1])).to.be.a('string');
+    st({ abilities: { geomancer: 4 }, skills: [] });
+    expect(T.skillLock(master[1])).to.equal(null);
+  });
+
+  it('does not let a granted skill consume the slot a paid one needs', function () {
+    var master = window.DOS_SKILLS.filter(function (s) {
+      return s.s === 'geomancer' && s.t === 'master';
+    });
+    st({ abilities: { geomancer: 4 }, skills: [master[0].n], granted: [master[0].n] });
+    expect(T.knownIn('geomancer', 'master')).to.equal(0);
+    expect(T.countIn('geomancer', 'master')).to.equal(1);
+    expect(T.skillLock(master[1])).to.equal(null);
+  });
+
+  it('names the rank the tier actually opens at', function () {
+    var s = skillAt('geomancer', 'master');
+    st({ abilities: { geomancer: 1 } });
+    expect(T.skillLock(s)).to.contain('4');
+  });
+});
+
+describe('pruning edge cases', function () {
+
+  it('leaves a legal build untouched, array identity included', function () {
+    var s = st({ abilities: { geomancer: 1 } });
+    var skills = window.DOS_SKILLS.filter(function (x) {
+      return x.s === 'geomancer' && x.t === 'novice';
+    }).slice(0, 2).map(function (x) { return x.n; });
+    s.skills = skills.slice();
+    var before = s.skills;
+    T.pruneSkills();
+    expect(T.getState().skills).to.equal(before);
+  });
+
+  it('survives pruning an empty build', function () {
+    st();
+    T.pruneSkills();
+    T.pruneTalents();
+    expect(T.getState().skills).to.deep.equal([]);
+    expect(T.getState().talents).to.deep.equal([]);
+  });
+
+  it('drops a skill name the data no longer knows', function () {
+    st({ abilities: { geomancer: 1 }, skills: ['Not A Real Skill'] });
+    T.pruneSkills();
+    expect(T.getState().skills).to.deep.equal([]);
+  });
+
+  it('keeps a granted skill that is not in the data at all', function () {
+    // Granted names are exempt from the slot economy but still have to
+    // resolve — an unknown one is dropped rather than crashing the prune.
+    st({ skills: ['Not A Real Skill'], granted: ['Not A Real Skill'] });
+    T.pruneSkills();
+    expect(T.getState().skills).to.deep.equal([]);
+  });
+
+  it('trims the overflow but keeps the earlier picks', function () {
+    var novice = window.DOS_SKILLS.filter(function (s) {
+      return s.s === 'geomancer' && s.t === 'novice';
+    }).slice(0, 5).map(function (s) { return s.n; });
+    st({ abilities: { geomancer: 1 }, skills: novice });   // rank 1 = 3 novice slots
+    T.pruneSkills();
+    expect(T.getState().skills).to.deep.equal(novice.slice(0, 3));
+  });
+
+  it('prunes each school and tier independently', function () {
+    var geo = window.DOS_SKILLS.filter(function (s) {
+      return s.s === 'geomancer' && s.t === 'novice';
+    }).slice(0, 4).map(function (s) { return s.n; });
+    var aero = window.DOS_SKILLS.filter(function (s) {
+      return s.s === 'aerotheurge' && s.t === 'novice';
+    }).slice(0, 2).map(function (s) { return s.n; });
+    st({ abilities: { geomancer: 1, aerotheurge: 1 }, skills: geo.concat(aero) });
+    T.pruneSkills();
+    expect(T.getState().skills).to.deep.equal(geo.slice(0, 3).concat(aero));
+  });
+
+  it('drops a talent whose level requirement is no longer met', function () {
+    var lv = window.DOS_TALENTS.find(function (t) { return t.req && t.req.level; });
+    if (!lv) return;                       // no level-gated talent shipped
+    st({ level: lv.req.level, talents: [lv.name] });
+    T.pruneTalents();
+    expect(T.getState().talents).to.deep.equal([lv.name]);
+    st({ level: lv.req.level - 1, talents: [lv.name] });
+    T.pruneTalents();
+    expect(T.getState().talents).to.deep.equal([]);
+  });
+
+  it('keeps a talent that Scientist alone qualifies', function () {
+    // Scientist's +1 is a real rank for prerequisites, so a talent needing
+    // Crafting 1 survives a prune on the talent alone.
+    var t = { name: 'Synthetic', req: { ability: 'crafting', rank: 1 } };
+    st({ talents: ['Scientist'] });
+    expect(T.talentMet(t).ok).to.equal(true);
+    st({});
+    expect(T.talentMet(t).ok).to.equal(false);
+  });
+});
+
+describe('helper edge cases', function () {
+
+  it('clamps a value already inside the range unchanged', function () {
+    expect(T.clamp(3, 1, 5)).to.equal(3);
+    expect(T.clamp(1, 1, 5)).to.equal(1);
+    expect(T.clamp(5, 1, 5)).to.equal(5);
+  });
+
+  it('lets the low bound win when the range is inverted', function () {
+    expect(T.clamp(3, 5, 1)).to.equal(5);
+  });
+
+  it('escapes every dangerous character, repeated', function () {
+    expect(T.escapeHtml('<a href="x">&</a>'))
+      .to.equal('&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;');
+  });
+
+  it('leaves an ordinary item name alone', function () {
+    expect(T.escapeHtml("Pixie Dust")).to.equal('Pixie Dust');
+  });
+
+  it('coerces a non-string rather than throwing', function () {
+    expect(T.escapeHtml(5)).to.equal('5');
+    expect(T.escapeHtml(null)).to.equal('null');
+  });
+
+  it('returns null, not an empty list, when nothing is short', function () {
+    var s = window.DOS_SKILLS.find(function (x) { return x.attr; });
+    var key = Object.keys(s.attr)[0];
+    var attrs = {};
+    R.attributes.list.forEach(function (a) { attrs[a.id] = R.attributes.base; });
+    attrs[key] = s.attr[key];
+    st({ attrs: attrs });
+    expect(T.attrShortfall(s)).to.equal(null);
+  });
+
+  it('never reports a negative AP penalty above the recommendation', function () {
+    var s = window.DOS_SKILLS.find(function (x) { return x.rank === 1; });
+    st({ abilities: {}, gearAbils: {} });
+    var o = {}; o[s.s] = 5;
+    st({ abilities: o });
+    expect(T.apPenalty(s)).to.equal(0);
   });
 });
 
