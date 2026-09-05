@@ -68,7 +68,11 @@ gate in game:
   talents: [names], skills: [names],
   granted: [names],               // preset-given skills, exempt from slot limits
   grantedTalents: [names],        // companion talents that bypass prerequisites
-  attrFloor: {...} | null         // per-attribute minimum, for companions below base 5
+  attrFloor: {...} | null,        // per-attribute minimum, for companions below base 5
+  gearAttrs: {intelligence: 1},   // equipment bonuses, never cost pool points
+  gearAbils: {geomancer: 1},
+  showGear: false,                // are the gear steppers visible
+  gearSlots: true                 // do gear-granted ranks unlock skill slots
 }
 ```
 
@@ -93,6 +97,35 @@ builds the game would reject.
 Builds are keyed by name: saving under an existing name overwrites it, a new
 name creates another entry. `restoreBuild()` merges onto `blankState()`, so
 builds saved by an older version survive new fields being added.
+
+## Gear bonuses
+
+DOS1 gear is procedurally generated, so there is no item database to pick from.
+Instead each attribute and ability row gets a second, dimmer stepper for "what my
+kit adds", shown only when **Show gear bonuses** is ticked.
+
+The rule that matters: **gear never touches the point economy, but drives every
+requirement check.** `attrSpent()` and `abilSpent()` ignore it entirely, so a
+bonus can never look like it costs or refunds points. Everything else reads the
+effective value through two helpers:
+
+```js
+effAttr(id)  // state.attrs[id] + gearAttrs[id]
+effRank(id)  // rank(id) + (gearSlots ? gearAbils[id] : 0)
+```
+
+Those feed skill slots, school locks, AP penalties, attribute shortfalls, and
+both kinds of talent prerequisite. Attribute gear is deliberately uncapped — it
+is the only way past the cap of 15. Ability gear stops at rank 5.
+
+**`gearSlots` is a user-flippable rule.** Gear-granted ability ranks are believed
+to unlock the matching skill slots in EE — reach Geomancer 4 with points, wear
++1, slot a second master skill. That was not confirmed from play, so the toggle
+**Gear ranks grant skill slots** exists to turn it off. It defaults on.
+
+Because pruning reads effective ranks, removing gear can invalidate skills the
+gear was paying for, and they are dropped — the same behaviour as lowering a paid
+rank, and correct, since the build is not legal without that item.
 
 ## Things that look like bugs but are not
 
@@ -162,7 +195,6 @@ Deliberately out of scope so far:
   showing what to spend and when, reverse-derived from a finished build, so it
   can be followed at the keyboard. Would also surface deliberate point banking.
 - **Crafting** — explicitly deferred by the user as a separate project
-- **Gear bonuses** — no +X to attributes or abilities from equipment
 - **Lone Wolf** — the talent is listed but its +1 ability point per level is not
   applied to the pools
 - **Multi-character party view** — one build at a time was a deliberate choice;

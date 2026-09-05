@@ -26,7 +26,12 @@ function blankState() {
     granted: [],     // preset-given skills - the game grants these regardless of slots
     grantedTalents: [], // companion talents that bypass their prerequisites
     attrFloor: null, // per-attribute minimum; companions can start below the base 5
-    buildName: null  // name of the saved build currently loaded, if any
+    buildName: null, // name of the saved build currently loaded, if any
+    gearAttrs: {},   // attribute id -> bonus from equipment
+    gearAbils: {},   // ability id -> rank bonus from equipment
+    showGear: false, // whether the gear steppers are visible
+    gearSlots: true  // do gear-granted ability ranks unlock skill slots
+
   };
 }
 
@@ -48,6 +53,10 @@ function load() {
     base.grantedTalents = Array.isArray(s.grantedTalents) ? s.grantedTalents : [];
     base.attrFloor = s.attrFloor || null;
     base.buildName = s.buildName || null;
+    base.gearAttrs = s.gearAttrs || {};
+    base.gearAbils = s.gearAbils || {};
+    base.showGear = !!s.showGear;
+    base.gearSlots = s.gearSlots !== false;   // default on
     return base;
   } catch (e) { return blankState(); }
 }
@@ -162,6 +171,19 @@ function talSpent() { return state.talents.length; }
 
 function rank(id) { return state.abilities[id] || 0; }
 
+// Gear bonuses stack on top of spent points. They never cost pool points, and
+// they are what every requirement, cap and slot check reads.
+function gearAttr(id) { return state.gearAttrs[id] || 0; }
+function gearAbil(id) { return state.gearAbils[id] || 0; }
+
+function effAttr(id) { return state.attrs[id] + gearAttr(id); }
+
+// Whether gear-granted ranks unlock skill slots is a rule the user can flip,
+// since it is the one gear behaviour not confirmed from play.
+function effRank(id) {
+  return rank(id) + (state.gearSlots ? gearAbil(id) : 0);
+}
+
 function attrFloor(id) {
   return (state.attrFloor && typeof state.attrFloor[id] === 'number')
     ? state.attrFloor[id] : R.attributes.base;
@@ -176,12 +198,12 @@ function talentMet(t) {
       ? { ok: true } : { ok: false, why: 'Requires level ' + q.level };
   if (q.ability !== undefined) {
     var ab = ABILITIES.find(function (a) { return a.id === q.ability; });
-    return rank(q.ability) >= q.rank
+    return effRank(q.ability) >= q.rank
       ? { ok: true } : { ok: false, why: 'Requires ' + (ab ? ab.name : q.ability) + ' ' + q.rank };
   }
   if (q.attr !== undefined) {
     var at = R.attributes.list.find(function (a) { return a.id === q.attr; });
-    return state.attrs[q.attr] >= q.value
+    return effAttr(q.attr) >= q.value
       ? { ok: true } : { ok: false, why: 'Requires ' + (at ? at.name : q.attr) + ' ' + q.value };
   }
   return { ok: true };
@@ -209,7 +231,7 @@ function schoolAbilities() {
 
 // Slots granted at the current rank, per tier.
 function slotsFor(id) {
-  return R.skillSlots[clamp(rank(id), 0, R.skillSlots.length - 1)];
+  return R.skillSlots[clamp(effRank(id), 0, R.skillSlots.length - 1)];
 }
 
 function isGranted(n) { return state.granted.indexOf(n) >= 0; }
@@ -236,7 +258,7 @@ function isKnown(n) { return state.skills.indexOf(n) >= 0; }
 
 // Why can't I learn this? null when it is learnable.
 function skillLock(s) {
-  if (rank(s.s) < 1) {
+  if (effRank(s.s) < 1) {
     var ab = ABILITIES.find(function (a) { return a.id === s.s; });
     return 'Requires ' + (ab ? ab.name : s.s) + ' 1';
   }
@@ -254,7 +276,7 @@ function skillLock(s) {
 
 // Skills can be used below their recommended rank at +2 AP per rank short.
 function apPenalty(s) {
-  var short = Math.max(0, (s.rank || 1) - rank(s.s));
+  var short = Math.max(0, (s.rank || 1) - effRank(s.s));
   return short * 2;
 }
 
@@ -264,7 +286,7 @@ function attrShortfall(s) {
   if (!s.attr) return null;
   var out = [];
   Object.keys(s.attr).forEach(function (k) {
-    var have = state.attrs[k], need = s.attr[k];
+    var have = effAttr(k), need = s.attr[k];
     if (have < need) {
       var at = R.attributes.list.find(function (a) { return a.id === k; });
       out.push((at ? at.name : k) + ' ' + have + '/' + need);
@@ -310,9 +332,10 @@ function renderAttrs() {
   var left = attrTotal() - attrSpent();
   el.attrList.innerHTML = '';
   R.attributes.list.forEach(function (a) {
-    var v = state.attrs[a.id], base = attrFloor(a.id);
+    var v = state.attrs[a.id], base = attrFloor(a.id),
+        g = gearAttr(a.id), eff = v + g;
     var row = document.createElement('div');
-    row.className = 'stat';
+    row.className = 'stat' + (state.showGear ? ' with-gear' : '');
     row.innerHTML =
       '<div class="stat-name">' + a.name + '</div>' +
       '<div class="stat-ctrl">' +
@@ -321,6 +344,13 @@ function renderAttrs() {
         '<button class="step" data-inc="' + a.id + '"' +
           (v >= R.attributes.softCap || left <= 0 ? ' disabled' : '') + '>+</button>' +
       '</div>' +
+      (state.showGear ?
+        '<div class="gear-ctrl">' +
+          '<button class="step gear" data-geardec="' + a.id + '"' + (g <= 0 ? ' disabled' : '') + '>&minus;</button>' +
+          '<span class="gear-val' + (g ? ' on' : '') + '">' + (g ? '+' + g : '&ndash;') + '</span>' +
+          '<button class="step gear" data-gearinc="' + a.id + '">+</button>' +
+          '<span class="eff-val' + (g ? ' on' : '') + '">' + eff + '</span>' +
+        '</div>' : '') +
       '<div class="stat-desc">' + a.desc + '</div>';
     el.attrList.appendChild(row);
   });
@@ -342,12 +372,16 @@ function renderAbilities() {
           up = r + 1,                                  // cost to go one rank higher
           canUp = r < R.abilityPoints.maxRank && left >= up;
 
+      var g = gearAbil(a.id), eff = effRank(a.id);
+
       var pips = '';
-      for (var i = 1; i <= R.abilityPoints.maxRank; i++)
-        pips += '<span class="pip' + (i <= r ? ' on' : '') + '"></span>';
+      for (var i = 1; i <= R.abilityPoints.maxRank; i++) {
+        var cls = i <= r ? ' on' : (i <= eff ? ' gear' : '');
+        pips += '<span class="pip' + cls + '"></span>';
+      }
 
       var row = document.createElement('div');
-      row.className = 'abil';
+      row.className = 'abil' + (state.showGear ? ' with-gear' : '');
       row.innerHTML =
         '<div class="abil-name">' + a.name +
           (a.school ? '<span class="school-tag">school</span>' : '') +
@@ -359,6 +393,13 @@ function renderAbilities() {
           '<button class="step" data-abilinc="' + a.id + '"' + (canUp ? '' : ' disabled') + '>+</button>' +
           (r < R.abilityPoints.maxRank ? '<span class="cost-note">' + up + 'p</span>' : '') +
         '</div>' +
+        (state.showGear ?
+          '<div class="gear-ctrl">' +
+            '<button class="step gear" data-gearabildec="' + a.id + '"' + (g <= 0 ? ' disabled' : '') + '>&minus;</button>' +
+            '<span class="gear-val' + (g ? ' on' : '') + '">' + (g ? '+' + g : '&ndash;') + '</span>' +
+            '<button class="step gear" data-gearabilinc="' + a.id + '">+</button>' +
+            '<span class="eff-val' + (g ? ' on' : '') + '">' + eff + '</span>' +
+          '</div>' : '') +
         '<div class="abil-desc">' + a.desc + '</div>';
       wrap.appendChild(row);
     });
@@ -522,6 +563,12 @@ function renderAll() {
   el.levelOut.textContent = state.level;
   el.levelSlider.value = state.level;
   el.presetSelect.value = state.preset;
+  el.gearToggle.checked = state.showGear;
+  el.gearSlotsToggle.checked = state.gearSlots;
+  el.gearSlotsWrap.style.display = state.showGear ? '' : 'none';
+  el.gearClear.style.display =
+    state.showGear && (Object.keys(state.gearAttrs).length || Object.keys(state.gearAbils).length)
+      ? '' : 'none';
   var p = findPreset(state.preset);
   el.presetBlurb.textContent = p ? p.blurb : '';
   save();
@@ -589,18 +636,33 @@ function bind() {
   // attributes
   el.attrList.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
-    var inc = b.dataset.inc, dec = b.dataset.dec;
+    var inc = b.dataset.inc, dec = b.dataset.dec,
+        ginc = b.dataset.gearinc, gdec = b.dataset.geardec;
     if (inc && attrTotal() - attrSpent() > 0 && state.attrs[inc] < R.attributes.softCap)
       state.attrs[inc]++;
     if (dec && state.attrs[dec] > attrFloor(dec))
       state.attrs[dec]--;
+    // Gear is uncapped: it is the one way past the attribute cap of 15.
+    if (ginc) state.gearAttrs[ginc] = gearAttr(ginc) + 1;
+    if (gdec && gearAttr(gdec) > 0) {
+      state.gearAttrs[gdec]--;
+      if (!state.gearAttrs[gdec]) delete state.gearAttrs[gdec];
+    }
     renderAll();
   });
 
   // abilities
   el.abilList.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
-    var inc = b.dataset.abilinc, dec = b.dataset.abildec;
+    var inc = b.dataset.abilinc, dec = b.dataset.abildec,
+        ginc = b.dataset.gearabilinc, gdec = b.dataset.gearabildec;
+    // Gear ranks stop at 5, the same ceiling the ability itself has.
+    if (ginc && effRank(ginc) < R.abilityPoints.maxRank)
+      state.gearAbils[ginc] = gearAbil(ginc) + 1;
+    if (gdec && gearAbil(gdec) > 0) {
+      state.gearAbils[gdec]--;
+      if (!state.gearAbils[gdec]) delete state.gearAbils[gdec];
+    }
     if (inc) {
       var next = rank(inc) + 1;
       if (next <= R.abilityPoints.maxRank && abilTotal() - abilSpent() >= next)
@@ -731,7 +793,8 @@ function init() {
    'poolAttr','poolAbil','poolTal','attrList','abilList','talentList',
    'talentFilter','rulesNotes','resetBtn',
    'skillList','skillSearch','skillFilter','skillCount',
-   'buildName','saveBtn','saveHint','buildList','exportBtn','importBtn','importFile'
+   'buildName','saveBtn','saveHint','buildList','exportBtn','importBtn','importFile',
+   'gearToggle','gearSlotsToggle','gearSlotsWrap','gearClear'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   el.levelSlider.max = R.planLevel;

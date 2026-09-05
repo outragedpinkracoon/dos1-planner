@@ -319,3 +319,40 @@ body {
 .io-row .btn-ghost { flex: 1; font-size: 11.5px; padding: 5px 8px; }
 
 .empty-builds { color: var(--dim); font-size: 11.5px; font-style: italic; padding: 6px 2px; }
+
+/* ================= gear bonuses ================= */
+.gear-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 10px; padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+}
+.toggle.inline { display: inline-block; margin-bottom: 0; }
+.btn-ghost.tiny { padding: 3px 8px; font-size: 10.5px; margin-left: auto; }
+
+/* rows grow a fourth column when gear is showing */
+.stat.with-gear { grid-template-columns: 120px 92px 108px 1fr; }
+.abil.with-gear { grid-template-columns: 150px 120px 108px 1fr; }
+
+.gear-ctrl { display: flex; align-items: center; gap: 4px; }
+.step.gear { width: 20px; height: 20px; font-size: 13px; opacity: .8; }
+.step.gear:hover:not(:disabled) { opacity: 1; }
+
+.gear-val {
+  min-width: 20px; text-align: center;
+  font-size: 11px; color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.gear-val.on { color: #6ab0c9; }
+
+.eff-val {
+  min-width: 24px; margin-left: 4px;
+  padding: 1px 5px; border-radius: 3px;
+  background: var(--panel-2);
+  font-size: 11.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+.eff-val.on { color: #6ab0c9; background: #1e2c33; }
+
+/* a pip filled by gear rather than by spent points */
+.pip.gear { background: #2f5766; border-color: #6ab0c9; }
