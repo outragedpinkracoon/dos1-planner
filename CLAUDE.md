@@ -83,8 +83,7 @@ gate in game:
   attrFloor: {...} | null,        // per-attribute minimum, for companions below base 5
   gearAttrs: {intelligence: 1},   // equipment bonuses, never cost pool points
   gearAbils: {geomancer: 1},
-  showGear: false,                // are the gear steppers visible
-  gearSlots: true                 // do gear-granted ranks unlock skill slots
+  showGear: false                 // are the gear steppers visible
 }
 ```
 
@@ -123,17 +122,19 @@ effective value through two helpers:
 
 ```js
 effAttr(id)  // state.attrs[id] + gearAttrs[id]
-effRank(id)  // rank(id) + (gearSlots ? gearAbils[id] : 0)
+effRank(id)  // rank(id) + gearAbils[id]
 ```
 
 Those feed skill slots, school locks, AP penalties, attribute shortfalls, and
 both kinds of talent prerequisite. Attribute gear is deliberately uncapped — it
 is the only way past the cap of 15. Ability gear stops at rank 5.
 
-**`gearSlots` is a user-flippable rule.** Gear-granted ability ranks are believed
-to unlock the matching skill slots in EE — reach Geomancer 4 with points, wear
-+1, slot a second master skill. That was not confirmed from play, so the toggle
-**Gear ranks grant skill slots** exists to turn it off. It defaults on.
+In practice the only ability gear that exists in DOS1 EE is +Crafting/+Blacksmithing
+from bracers and belts — there is no gear that bumps a combat school like
+Aerotheurge or Geomancer. Gear-granted ranks count toward everything `effRank`
+feeds, unconditionally; there used to be a **Gear ranks grant skill slots**
+toggle for this, but the premise it hedged against (unconfirmed gear-driven
+school ranks) doesn't occur in the real item pool, so it was removed.
 
 Because pruning reads effective ranks, removing gear can invalidate skills the
 gear was paying for, and they are dropped — the same behaviour as lowering a paid

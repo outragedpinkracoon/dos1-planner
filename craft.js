@@ -26,9 +26,7 @@ function saveBuilds(b) {
   catch (e) { return false; }
 }
 
-/* Points-bought rank plus any gear bonus. Deliberately not the planner's
-   effRank(): that one is gated on gearSlots, which is a rule about skill slots
-   and has nothing to do with whether a +1 Crafting ring helps you craft. */
+/* Points-bought rank plus any gear bonus - same shape as the planner's effRank(). */
 function buildRank(bs, name) {
   var id = ABIL[name];
   return ((bs.abilities || {})[id] || 0) + ((bs.gearAbils || {})[id] || 0);

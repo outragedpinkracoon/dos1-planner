@@ -327,11 +327,6 @@ body {
   border-top: 1px solid var(--line);
 }
 .gear-bar .toggle { margin-bottom: 0; display: flex; align-items: center; }
-/* a rules flag, not a view control - deliberately quieter than the toggle above */
-.gear-bar .sub-rule {
-  padding-left: 18px; font-size: 11px; color: var(--dim);
-  cursor: help;
-}
 .btn-ghost.tiny { padding: 2px 7px; font-size: 10px; margin-left: auto; }
 .btn-ghost.tiny:disabled { opacity: .3; cursor: default; }
 .btn-ghost.tiny:disabled:hover { color: var(--dim); border-color: var(--line); }

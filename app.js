@@ -29,8 +29,7 @@ function blankState() {
     buildName: null, // name of the saved build currently loaded, if any
     gearAttrs: {},   // attribute id -> bonus from equipment
     gearAbils: {},   // ability id -> rank bonus from equipment
-    showGear: false, // whether the gear steppers are visible
-    gearSlots: true  // do gear-granted ability ranks unlock skill slots
+    showGear: false  // whether the gear steppers are visible
   };
 }
 
@@ -55,7 +54,6 @@ function load() {
     base.gearAttrs = s.gearAttrs || {};
     base.gearAbils = s.gearAbils || {};
     base.showGear = !!s.showGear;
-    base.gearSlots = s.gearSlots !== false;   // default on
     return base;
   } catch (e) { return blankState(); }
 }
@@ -212,13 +210,8 @@ function talentAbilFloor(id) {
   return (hasScientist() && SCIENTIST_ABILS.indexOf(id) >= 0) ? 1 : 0;
 }
 
-// Whether gear-granted ranks unlock skill slots is a rule the user can flip,
-// since it is the one gear behaviour not confirmed from play.
 function effRank(id) {
-  return Math.max(
-    rank(id) + (state.gearSlots ? gearAbil(id) : 0),
-    talentAbilFloor(id)
-  );
+  return Math.max(rank(id) + gearAbil(id), talentAbilFloor(id));
 }
 
 function attrFloor(id) {
@@ -652,8 +645,6 @@ function renderAll() {
   el.levelSlider.value = state.level;
   el.presetSelect.value = state.preset;
   el.gearToggle.checked = state.showGear;
-  el.gearSlotsToggle.checked = state.gearSlots;
-  el.gearSlotsWrap.style.display = state.showGear ? '' : 'none';
   // stays mounted and merely disables, so the bar never reflows
   el.gearClear.disabled =
     !(Object.keys(state.gearAttrs).length || Object.keys(state.gearAbils).length);
@@ -799,10 +790,6 @@ function bind() {
     state.showGear = el.gearToggle.checked;
     renderAll();
   });
-  el.gearSlotsToggle.addEventListener('change', function () {
-    state.gearSlots = el.gearSlotsToggle.checked;
-    renderAll();
-  });
   el.gearClear.addEventListener('click', function (e) {
     // it lives inside the toggle's <label>, so stop the click reaching the checkbox
     e.preventDefault();
@@ -901,7 +888,7 @@ function init() {
    'talentFilter','rulesNotes','resetBtn',
    'skillList','skillSearch','skillFilter','skillCount',
    'buildName','saveBtn','saveHint','buildList','exportBtn','importBtn','importFile',
-   'gearToggle','gearSlotsToggle','gearSlotsWrap','gearClear',
+   'gearToggle','gearClear',
    'bagSub','bagHint','bagPeek','bagOpen'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
