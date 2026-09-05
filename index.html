@@ -20,6 +20,21 @@
   <!-- ============ LEFT: setup + pools ============ -->
   <aside class="col col-left">
     <section class="panel">
+      <h2>Saved builds</h2>
+      <div class="save-row">
+        <input type="text" id="buildName" class="select" placeholder="Build name&hellip;" maxlength="60">
+        <button id="saveBtn" class="btn" type="button">Save</button>
+      </div>
+      <p id="saveHint" class="hint"></p>
+      <div id="buildList" class="build-list"></div>
+      <div class="io-row">
+        <button id="exportBtn" class="btn-ghost" type="button">Export</button>
+        <button id="importBtn" class="btn-ghost" type="button">Import</button>
+        <input type="file" id="importFile" accept="application/json" hidden>
+      </div>
+    </section>
+
+    <section class="panel">
       <h2>Class</h2>
       <select id="presetSelect" class="select"></select>
       <p id="presetBlurb" class="blurb"></p>

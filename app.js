@@ -7,7 +7,8 @@ var R = window.DOS_RULES,
     PRESETS = window.DOS_PRESETS,
     SKILLS = window.DOS_SKILLS;
 
-var STORE_KEY = 'dos1-planner:slice1';
+var STORE_KEY = 'dos1-planner:slice1';      // the build currently on screen
+var BUILDS_KEY = 'dos1-planner:builds';     // named saves, keyed by name
 
 // ---------------------------------------------------------------- state
 var state = null;
@@ -24,7 +25,8 @@ function blankState() {
     skills: [],      // learned skill names
     granted: [],     // preset-given skills - the game grants these regardless of slots
     grantedTalents: [], // companion talents that bypass their prerequisites
-    attrFloor: null  // per-attribute minimum; companions can start below the base 5
+    attrFloor: null, // per-attribute minimum; companions can start below the base 5
+    buildName: null  // name of the saved build currently loaded, if any
   };
 }
 
@@ -45,12 +47,82 @@ function load() {
     base.granted = Array.isArray(s.granted) ? s.granted : [];
     base.grantedTalents = Array.isArray(s.grantedTalents) ? s.grantedTalents : [];
     base.attrFloor = s.attrFloor || null;
+    base.buildName = s.buildName || null;
     return base;
   } catch (e) { return blankState(); }
 }
 
 function save() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+// ---------------------------------------------------------------- saved builds
+// Builds are keyed by name: saving under an existing name overwrites it,
+// saving under a new one creates another entry.
+function loadBuilds() {
+  try {
+    var raw = localStorage.getItem(BUILDS_KEY);
+    var obj = raw ? JSON.parse(raw) : {};
+    return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+  } catch (e) { return {}; }
+}
+
+function saveBuilds(b) {
+  try { localStorage.setItem(BUILDS_KEY, JSON.stringify(b)); return true; }
+  catch (e) { return false; }
+}
+
+function buildNames() {
+  var b = loadBuilds();
+  return Object.keys(b).sort(function (x, y) {
+    return (b[y].savedAt || 0) - (b[x].savedAt || 0);
+  });
+}
+
+function snapshot() {
+  var copy = JSON.parse(JSON.stringify(state));
+  delete copy.buildName;
+  return copy;
+}
+
+function storeBuild(name) {
+  name = (name || '').trim();
+  if (!name) return { ok: false, why: 'Give the build a name first.' };
+
+  var builds = loadBuilds(),
+      existed = Object.prototype.hasOwnProperty.call(builds, name);
+
+  builds[name] = { savedAt: Date.now(), state: snapshot() };
+  if (!saveBuilds(builds)) return { ok: false, why: 'Could not save - storage is full or blocked.' };
+
+  state.buildName = name;
+  save();
+  return { ok: true, overwrote: existed };
+}
+
+function restoreBuild(name) {
+  var rec = loadBuilds()[name];
+  if (!rec || !rec.state) return false;
+  state = Object.assign(blankState(), rec.state);
+  state.buildName = name;
+  save();
+  return true;
+}
+
+function deleteBuild(name) {
+  var builds = loadBuilds();
+  delete builds[name];
+  saveBuilds(builds);
+  if (state.buildName === name) { state.buildName = null; save(); }
+}
+
+function describeBuild(rec) {
+  var s = rec.state || {},
+      p = findPreset(s.preset),
+      when = rec.savedAt ? new Date(rec.savedAt) : null;
+  var bits = [(p ? p.name : 'Custom') + ' L' + (s.level || 1)];
+  if (when) bits.push(when.toLocaleDateString());
+  return bits.join(' · ');
 }
 
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
@@ -403,6 +475,39 @@ function renderSkills() {
   el.skillCount.textContent = state.skills.length + ' known';
 }
 
+function renderBuilds() {
+  var names = buildNames(),
+      builds = loadBuilds();
+
+  el.buildList.innerHTML = '';
+  if (!names.length) {
+    el.buildList.innerHTML = '<div class="empty-builds">No saved builds yet.</div>';
+  } else {
+    names.forEach(function (n) {
+      var node = document.createElement('div');
+      node.className = 'build' + (state.buildName === n ? ' active' : '');
+      node.dataset.build = n;
+      node.innerHTML =
+        '<div class="build-info">' +
+          '<div class="build-name"></div>' +
+          '<div class="build-meta">' + describeBuild(builds[n]) + '</div>' +
+        '</div>' +
+        '<button class="build-del" data-del="1" title="Delete this build">&times;</button>';
+      // set as text so a build named with markup cannot inject any
+      node.querySelector('.build-name').textContent = n;
+      el.buildList.appendChild(node);
+    });
+  }
+
+  // Keep the name box in step with what is loaded, unless it is being typed in.
+  if (document.activeElement !== el.buildName)
+    el.buildName.value = state.buildName || '';
+
+  var typed = el.buildName.value.trim();
+  el.saveBtn.textContent =
+    typed && Object.prototype.hasOwnProperty.call(builds, typed) ? 'Overwrite' : 'Save';
+}
+
 function renderAll() {
   pruneTalents();
   pruneSkills();
@@ -411,6 +516,7 @@ function renderAll() {
   renderAbilities();
   renderTalents();
   renderSkills();
+  renderBuilds();
   el.levelOut.textContent = state.level;
   el.levelSlider.value = state.level;
   el.presetSelect.value = state.preset;
@@ -430,6 +536,7 @@ function applyPreset(id) {
   if (!p) return;
   var fresh = blankState();
   fresh.preset = id;
+  fresh.buildName = null;                          // a preset is a fresh, unsaved build
 
   // Companions arrive at a fixed level with their points already committed, and
   // their attributes are absolute rather than bonuses on top of the base 5.
@@ -534,10 +641,84 @@ function bind() {
   el.skillSearch.addEventListener('input', renderSkills);
   el.skillFilter.addEventListener('change', renderSkills);
 
+// saved builds
+  function doSave() {
+    var res = storeBuild(el.buildName.value);
+    el.saveHint.textContent = res.ok
+      ? (res.overwrote ? 'Overwrote "' + state.buildName + '".' : 'Saved as "' + state.buildName + '".')
+      : res.why;
+    renderAll();
+  }
+  el.saveBtn.addEventListener('click', doSave);
+  el.buildName.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+  });
+  // swap the button label between Save and Overwrite as you type
+  el.buildName.addEventListener('input', renderBuilds);
+
+  el.buildList.addEventListener('click', function (e) {
+    var node = e.target.closest('.build'); if (!node) return;
+    var name = node.dataset.build;
+
+    if (e.target.closest('[data-del]')) {
+      if (!confirm('Delete "' + name + '"?')) return;
+      deleteBuild(name);
+      el.saveHint.textContent = 'Deleted "' + name + '".';
+      renderAll();
+      return;
+    }
+
+    if (state.buildName === name) return;           // already loaded
+    if (restoreBuild(name)) {
+      el.saveHint.textContent = 'Loaded "' + name + '".';
+      renderAll();
+    }
+  });
+
+  // export / import
+  el.exportBtn.addEventListener('click', function () {
+    var payload = { app: 'dos1-planner', version: 1, exportedAt: Date.now(), builds: loadBuilds() };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'dos1-builds.json';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+
+  el.importBtn.addEventListener('click', function () { el.importFile.click(); });
+  el.importFile.addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(reader.result);
+        var incoming = data && data.builds;
+        if (!incoming || typeof incoming !== 'object') throw new Error('no builds');
+
+        var builds = loadBuilds(), added = 0, replaced = 0;
+        Object.keys(incoming).forEach(function (n) {
+          if (!incoming[n] || !incoming[n].state) return;
+          if (Object.prototype.hasOwnProperty.call(builds, n)) replaced++; else added++;
+          builds[n] = incoming[n];
+        });
+        saveBuilds(builds);
+        el.saveHint.textContent = 'Imported ' + added + ' new, ' + replaced + ' replaced.';
+      } catch (err) {
+        el.saveHint.textContent = 'That file is not a build export.';
+      }
+      renderAll();
+    };
+    reader.readAsText(f);
+    this.value = '';                                 // let the same file re-import
+  });
+
   // reset
   el.resetBtn.addEventListener('click', function () {
-    if (!confirm('Clear this build and start over?')) return;
+    if (!confirm('Clear the working build and start over? Saved builds are kept.')) return;
     state = blankState();
+    el.saveHint.textContent = '';
     renderAll();
   });
 }
@@ -547,7 +728,8 @@ function init() {
   ['presetSelect','presetBlurb','applyPreset','levelSlider','levelOut',
    'poolAttr','poolAbil','poolTal','attrList','abilList','talentList',
    'talentFilter','rulesNotes','resetBtn',
-   'skillList','skillSearch','skillFilter','skillCount'
+   'skillList','skillSearch','skillFilter','skillCount',
+   'buildName','saveBtn','saveHint','buildList','exportBtn','importBtn','importFile'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   el.levelSlider.max = R.planLevel;
