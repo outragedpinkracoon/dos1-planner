@@ -705,6 +705,21 @@ function bind() {
   el.skillSearch.addEventListener('input', renderSkills);
   el.skillFilter.addEventListener('change', renderSkills);
 
+// gear bonuses
+  el.gearToggle.addEventListener('change', function () {
+    state.showGear = el.gearToggle.checked;
+    renderAll();
+  });
+  el.gearSlotsToggle.addEventListener('change', function () {
+    state.gearSlots = el.gearSlotsToggle.checked;
+    renderAll();
+  });
+  el.gearClear.addEventListener('click', function () {
+    state.gearAttrs = {};
+    state.gearAbils = {};
+    renderAll();
+  });
+
 // saved builds
   function doSave() {
     var res = storeBuild(el.buildName.value);
