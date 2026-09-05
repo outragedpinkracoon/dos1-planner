@@ -1,11 +1,10 @@
 // Progression maths, gear/talent floors, slot limits and pruning.
 // These are the rules CLAUDE.md documents; the numbers here are the wiki totals.
-/* global describe, it, beforeEach, chai */
+/* global describe, it, chai */
 (function () {
 'use strict';
 var expect = chai.expect;
 var T = window.DOS_TEST;
-var R = window.DOS_RULES;
 
 // Every test drives the app's own functions against a state it owns, so
 // nothing leaks between tests and localStorage is never touched.
