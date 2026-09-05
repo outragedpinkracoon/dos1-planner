@@ -952,10 +952,18 @@ function init() {
 }
 
 // ------------------------------------------------------------- test hook
-// The whole app is one IIFE with no module system, so the pure rules
-// functions are otherwise unreachable from a test page. Exposing them
-// costs nothing at runtime and changes no behaviour: tests drive them by
-// swapping in a state object via setState, exactly as the UI does.
+// The whole app is one IIFE with no module system, so these functions are
+// otherwise unreachable from tests.html. Tests drive them by swapping in
+// their own state via setState - the same wholesale assignment the app
+// makes when it loads, applies a preset, restores or resets.
+//
+// Nothing in app.js reads DOS_TEST, so it changes no app behaviour, but it
+// is a live hatch rather than a test-only build: anything with a console
+// can setState and mutate the running planner. Harmless for a local build
+// planner; don't take it as sealed.
+//
+// Mostly pure reads, with two exceptions - pruneTalents and pruneSkills
+// mutate state.talents / state.skills, which is the behaviour under test.
 window.DOS_TEST = {
   blankState: blankState,
   setState: function (s) { state = s; },
