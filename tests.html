@@ -69,6 +69,18 @@ body { background: var(--bg); color: var(--text); margin: 0; }
 }
 #mocha code .comment { color: var(--dim); }
 #mocha-error { color: var(--bad); }
+
+/* Divider above the crafting.html suite - it tests a different page's file
+   (craft.js) and deserves to read as a separate block from the planner
+   suites above it, not just another item in the same list. Targeted by
+   position, since Mocha encodes the suite title into the href and leaves
+   nothing else to select on: test/craft.test.js is loaded last, so its
+   "Crafting tests" describe is always the final top-level suite. */
+#mocha > .suite > .suite:last-of-type {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid var(--line);
+}
 </style>
 </head>
 <body>
@@ -98,7 +110,14 @@ body { background: var(--bg); color: var(--text); margin: 0; }
 <script src="data/talents.js"></script>
 <script src="data/skills.js"></script>
 <script src="data/presets.js"></script>
+<script src="data/recipes.js"></script>
 <script src="app.js"></script>
+
+<!-- craft.js reads window.DOS_RECIPES for its data and guards its trailing
+     renderAll() the same way app.js guards init(): this page has none of the
+     crafting.html elements, so it bails and leaves buildRank() reachable on
+     window.DOS_CRAFT_TEST. -->
+<script src="craft.js"></script>
 
 <script>
   mocha.setup('bdd');
@@ -107,6 +126,8 @@ body { background: var(--bg); color: var(--text); margin: 0; }
 
 <script src="test/rules.test.js"></script>
 <script src="test/data.test.js"></script>
+<!-- Must load last: the divider CSS above targets the final top-level suite. -->
+<script src="test/craft.test.js"></script>
 
 <script>
   mocha.run();

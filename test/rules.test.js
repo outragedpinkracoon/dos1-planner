@@ -15,6 +15,8 @@ function st(over) {
   return s;
 }
 
+describe('Build character tests', function () {
+
 describe('pools', function () {
 
   describe('attributes', function () {
@@ -409,5 +411,7 @@ describe('helpers', function () {
       .to.equal('&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
   });
 });
+
+});   // Build character tests
 
 })();

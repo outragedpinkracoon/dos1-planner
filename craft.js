@@ -26,10 +26,19 @@ function saveBuilds(b) {
   catch (e) { return false; }
 }
 
-/* Points-bought rank plus any gear bonus - same shape as the planner's effRank(). */
+/* Points-bought rank plus any gear bonus - same shape as the planner's effRank().
+   Scientist's +1 Crafting/+1 Blacksmithing stacks the same way gear does, so it
+   has to be added here too, or a build that leans on Scientist instead of paid
+   ranks shows up on this page as if the skill were never taken. */
+function hasTalent(bs, name) {
+  return (bs.talents || []).indexOf(name) >= 0 ||
+    (bs.grantedTalents || []).indexOf(name) >= 0;
+}
+
 function buildRank(bs, name) {
   var id = ABIL[name];
-  return ((bs.abilities || {})[id] || 0) + ((bs.gearAbils || {})[id] || 0);
+  var scientist = (name === 'Crafting' || name === 'Smithing') && hasTalent(bs, 'Scientist') ? 1 : 0;
+  return ((bs.abilities || {})[id] || 0) + ((bs.gearAbils || {})[id] || 0) + scientist;
 }
 
 /* ---------- item lookup ---------- */
@@ -501,7 +510,13 @@ function tree(name, depth, seen, drawn) {
   }).join('');
 }
 
-/* ---------- events (delegated from containers, as in app.js) ---------- */
+/* ---------- events (delegated from containers, as in app.js) ----------
+   Wired up inside init(), which bails if the page has none of crafting.html's
+   elements - the same convention app.js uses so both files can load on the
+   test page without their DOM wiring throwing. */
+
+function init() {
+  if (!el.buildPick) return;
 
 document.querySelector('.modebar').addEventListener('click', function (e) {
   var b = e.target.closest('.mode');
@@ -640,4 +655,14 @@ if (location.hash.length > 1) {
 }
 
 renderAll();
+}
+
+init();
+
+// Test-only hatch, same shape and same caveat as app.js's DOS_TEST: nothing in
+// craft.js reads it, so it changes no behaviour, but it's a live hook onto
+// the running page, not a sealed test build.
+window.DOS_CRAFT_TEST = {
+  buildRank: buildRank, hasTalent: hasTalent
+};
 })();

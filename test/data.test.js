@@ -16,6 +16,8 @@ var attrIds = R.attributes.list.map(function (a) { return a.id; });
 var talentNames = TALENTS.map(function (t) { return t.name; });
 var TIERS = ['novice', 'adept', 'master'];
 
+describe('Build character tests', function () {
+
 describe('data shape', function () {
 
   it('has the documented counts', function () {
@@ -261,5 +263,7 @@ describe('rules table', function () {
     expect(opensAt('master')).to.equal(4);
   });
 });
+
+});   // Build character tests
 
 })();
