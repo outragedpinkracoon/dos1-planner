@@ -200,10 +200,25 @@ function gearAbil(id) { return state.gearAbils[id] || 0; }
 
 function effAttr(id) { return state.attrs[id] + gearAttr(id); }
 
+var SCIENTIST_ABILS = ['blacksmithing', 'crafting'];
+
+// Scientist's +1 Blacksmithing/+1 Crafting is a flat, uncosted floor, same
+// spirit as gear: it never touches abilSpent, only what effRank reports.
+function hasScientist() {
+  return state.talents.indexOf('Scientist') >= 0 ||
+    (state.grantedTalents && state.grantedTalents.indexOf('Scientist') >= 0);
+}
+function talentAbilFloor(id) {
+  return (hasScientist() && SCIENTIST_ABILS.indexOf(id) >= 0) ? 1 : 0;
+}
+
 // Whether gear-granted ranks unlock skill slots is a rule the user can flip,
 // since it is the one gear behaviour not confirmed from play.
 function effRank(id) {
-  return rank(id) + (state.gearSlots ? gearAbil(id) : 0);
+  return Math.max(
+    rank(id) + (state.gearSlots ? gearAbil(id) : 0),
+    talentAbilFloor(id)
+  );
 }
 
 function attrFloor(id) {
