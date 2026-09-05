@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DOS1 EE Build Planner</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Divinity: Original Sin EE — Build Planner</h1>
+  <div class="topbar-right">
+    <button id="resetBtn" class="btn-ghost" type="button">Reset build</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ============ LEFT: setup + pools ============ -->
+  <aside class="col col-left">
+    <section class="panel">
+      <h2>Class</h2>
+      <select id="presetSelect" class="select"></select>
+      <p id="presetBlurb" class="blurb"></p>
+      <button id="applyPreset" class="btn" type="button">Apply preset</button>
+      <p class="hint">Applying a preset overwrites your current spend.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Level</h2>
+      <div class="level-row">
+        <input type="range" id="levelSlider" min="1" max="20" value="1">
+        <output id="levelOut" class="level-out">1</output>
+      </div>
+    </section>
+
+    <section class="panel pools">
+      <h2>Points</h2>
+      <div class="pool" id="poolAttr">
+        <span class="pool-name">Attributes</span>
+        <span class="pool-val"><b>0</b> / 0</span>
+        <div class="bar"><i></i></div>
+      </div>
+      <div class="pool" id="poolAbil">
+        <span class="pool-name">Abilities</span>
+        <span class="pool-val"><b>0</b> / 0</span>
+        <div class="bar"><i></i></div>
+      </div>
+      <div class="pool" id="poolTal">
+        <span class="pool-name">Talents</span>
+        <span class="pool-val"><b>0</b> / 0</span>
+        <div class="bar"><i></i></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Notes</h2>
+      <ul id="rulesNotes" class="notes"></ul>
+    </section>
+  </aside>
+
+  <!-- ============ MIDDLE: attributes + abilities ============ -->
+  <main class="col col-mid">
+    <section class="panel">
+      <h2>Attributes <span class="sub">base 5 each · cap 15</span></h2>
+      <div id="attrList" class="stat-list"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Abilities <span class="sub">rank n costs n points</span></h2>
+      <div id="abilList"></div>
+    </section>
+  </main>
+
+  <!-- ============ RIGHT: talents ============ -->
+  <aside class="col col-right">
+    <section class="panel">
+      <h2>Talents</h2>
+      <label class="toggle">
+        <input type="checkbox" id="talentFilter"> Only show available
+      </label>
+      <div id="talentList" class="talent-list"></div>
+    </section>
+  </aside>
+
+</div>
+
+<script src="data/rules.js"></script>
+<script src="data/abilities.js"></script>
+<script src="data/talents.js"></script>
+<script src="data/skills.js"></script>
+<script src="data/presets.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
