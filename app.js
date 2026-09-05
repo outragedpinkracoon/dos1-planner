@@ -161,9 +161,11 @@ function escapeHtml(s) {
 }
 
 // ---------------------------------------------------------------- pools
-// Attributes: 5 at creation + 1 per even level.
+// Attributes: 5 at creation + 1 per even level + Bigger and Better's flat +1.
 function attrTotal() {
-  return R.attributes.creationPoints + Math.floor(state.level / 2);
+  var t = R.attributes.creationPoints + Math.floor(state.level / 2);
+  if (hasTalent('Bigger and Better')) t += 1;
+  return t;
 }
 function attrSpent() {
   return R.attributes.list.reduce(function (sum, a) {
