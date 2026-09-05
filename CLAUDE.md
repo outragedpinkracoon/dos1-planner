@@ -11,6 +11,7 @@ because the recipe list is 499 entries deep and the game tells you none of it.
 ```
 open index.html      # build planner
 open crafting.html   # crafting reference
+open tests.html      # test suite (needs a network connection for the CDN)
 ```
 
 ## Files
@@ -29,6 +30,9 @@ data/skills.js      130 skills, 8 schools x 3 tiers
 data/presets.js     12 classes + Custom, and 4 companions
 data/recipes.js     499 crafting recipes, generated (see Crafting)
 scripts/verify_craft.py   invariant checks for the crafting page
+tests.html      Mocha + Chai from CDN, loads app.js and runs the suite
+test/rules.test.js  progression, gear, talents, pruning, slots
+test/data.test.js   data integrity and preset budgets
 ```
 
 Two pages, no shared JS: the planner and the crafting reference each load
@@ -281,20 +285,48 @@ error. Do not chase it.
 
 ## Testing
 
-There is no test runner. Verification is done with throwaway `python3` heredocs
-that parse the data files with regex and check invariants — this catches data
-errors, which is where the bugs have actually been. Worth re-running after any
-data change:
+`open tests.html` — Mocha and Chai from a CDN, no build step and no Node, the
+same shape as the rest of the project. 79 tests, green in about 20ms.
+
+| File | Covers |
+|---|---|
+| `test/rules.test.js` | pool maths, gear, talent prerequisites, pruning, slots, the soft rules |
+| `test/data.test.js` | data integrity: counts, references, preset budgets, unverified flags |
+
+The suite reaches into `app.js` through `window.DOS_TEST`, a hook at the foot of
+the IIFE that exposes the pure functions plus a `setState`. Everything is
+otherwise closed over, and the alternative was restructuring working code to
+suit the tests. `init()` still runs on `DOMContentLoaded`; on the test page it
+finds none of the planner's elements and bails, which is what leaves the
+functions reachable.
+
+**Both CDN versions are pinned, deliberately.** unpkg resolves a bare `chai`
+specifier to v6, which is ESM-only and defines no global — `const { expect } =
+chai` then throws and takes `mocha.setup()` down with it, so the page renders
+blank with zero tests and no visible error. 4.5.0 is the last UMD build. Don't
+unpin these.
+
+What the tests are actually for is data errors, which is where the bugs have
+been — the Fighter/Whirlwind and Wolgraff/Strength-4 bugs were both found by
+checking invariants, not by clicking around. Worth re-running after any data
+change:
 
 - pool maths against known wiki totals (49 / 15 / 7 at level 20)
 - every class spends exactly 5 attributes, 5 ability points, 2 talents
+  (`Custom` is the blank slate and is exempt)
 - every preset's skills, talents and abilities resolve to real entries
-- preset skills fit their starting slots, or are correctly `granted`
-- `{}` and `()` balance in `app.js`; every `id=` in the HTML is wired; no
-  `el.*` reference lacks an element
+- companions overspend their level-3 budget, as published — asserted so a
+  well-meaning rebalance is caught rather than welcomed
+- the four unverified entries keep their flag
 
-The Fighter/Whirlwind and Wolgraff/Strength-4 bugs were both found this way, not
-by clicking around.
+Two things the tests do not cover: `craft.js`, which has its own checks in
+`scripts/verify_craft.py`, and any rendering — every assertion is against the
+pure functions. Structural checks on the HTML (`{}`/`()` balance, every `id=`
+wired, no `el.*` without an element) are still throwaway `python3` heredocs.
+
+`talentMet`'s `req:{attr}` branch is live code that no shipped talent reaches,
+so the tests exercise it with a synthetic talent object rather than skipping it.
+If a real attribute-prerequisite talent is ever added, the coverage is waiting.
 
 ## Not built
 
