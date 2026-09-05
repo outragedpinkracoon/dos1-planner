@@ -212,14 +212,16 @@ function hasTalent(name) {
 
 var SCIENTIST_ABILS = ['blacksmithing', 'crafting'];
 
-// Scientist's +1 Blacksmithing/+1 Crafting is a flat, uncosted floor, same
-// spirit as gear: it never touches abilSpent, only what effRank reports.
-function talentAbilFloor(id) {
+// Scientist's +1 Blacksmithing/+1 Crafting behaves exactly like a point of
+// gear: it stacks on top of paid rank and gear alike, never touches
+// abilSpent, and only affects what effRank reports. The one difference from
+// gear is that it can't be unequipped, so it always guarantees at least 1.
+function talentAbilBonus(id) {
   return (hasTalent('Scientist') && SCIENTIST_ABILS.indexOf(id) >= 0) ? 1 : 0;
 }
 
 function effRank(id) {
-  return Math.max(rank(id), talentAbilFloor(id)) + gearAbil(id);
+  return rank(id) + gearAbil(id) + talentAbilBonus(id);
 }
 
 function attrFloor(id) {
@@ -441,11 +443,12 @@ function renderAbilities() {
           up = r + 1,                                  // cost to go one rank higher
           canUp = r < R.abilityPoints.maxRank && left >= up;
 
-      var g = gearAbil(a.id), eff = effRank(a.id);
+      var g = gearAbil(a.id), bonus = talentAbilBonus(a.id), eff = effRank(a.id);
+      var bonusEnd = r + bonus;                      // paid ranks, then talent bonus, then gear
 
       var pips = '';
       for (var i = 1; i <= R.abilityPoints.maxRank; i++) {
-        var cls = i <= r ? ' on' : (i <= eff ? ' gear' : '');
+        var cls = i <= r ? ' on' : (i <= bonusEnd ? ' talentbonus' : (i <= eff ? ' gear' : ''));
         pips += '<span class="pip' + cls + '"></span>';
       }
 
@@ -973,7 +976,7 @@ window.DOS_TEST = {
   abilTotal: abilTotal, abilSpent: abilSpent, rankCost: rankCost,
   talTotal: talTotal, talSpent: talSpent,
   rank: rank, effRank: effRank, effAttr: effAttr, attrFloor: attrFloor,
-  hasTalent: hasTalent, talentAbilFloor: talentAbilFloor,
+  hasTalent: hasTalent, talentAbilBonus: talentAbilBonus,
   talentMet: talentMet, pruneTalents: pruneTalents,
   slotsFor: slotsFor, knownIn: knownIn, countIn: countIn,
   skillByName: skillByName, skillLock: skillLock,

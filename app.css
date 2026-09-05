@@ -366,6 +366,8 @@ body {
 
 /* a pip filled by gear rather than by spent points */
 .pip.gear { background: #2f5766; border-color: #6ab0c9; }
+/* a pip filled by a talent bonus (e.g. Scientist), not gear or spent points */
+.pip.talentbonus { background: #5c2f52; border-color: #d97cc4; }
 
 /* ---------- crafting bag summary ---------- */
 .bag-peek { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 9px; }

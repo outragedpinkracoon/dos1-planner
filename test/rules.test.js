@@ -133,21 +133,29 @@ describe('effective values', function () {
     expect(T.effRank('crafting')).to.equal(4);
   });
 
-  it("applies Scientist as a floor of 1, not a bonus", function () {
+  it('applies Scientist as a flat +1, same as gear, with 0 ranks paid', function () {
     st({ talents: ['Scientist'] });
     expect(T.effRank('crafting')).to.equal(1);
     expect(T.effRank('blacksmithing')).to.equal(1);
-
-    // A floor does not stack on top of a paid rank.
-    st({ talents: ['Scientist'], abilities: { crafting: 3 } });
-    expect(T.effRank('crafting')).to.equal(3);
   });
 
-  it('adds gear on top of the Scientist floor', function () {
-    // Scientist sets crafting's floor to 1 with 0 ranks paid. Gear should
-    // stack on top of that floor, same as it stacks on top of a paid rank.
+  it('stacks Scientist on top of a paid rank, same as gear', function () {
+    // Scientist is not a floor that gets absorbed by paid ranks - it behaves
+    // exactly like a point of gear, just one that can never be unequipped.
+    st({ talents: ['Scientist'], abilities: { crafting: 3 } });
+    expect(T.effRank('crafting')).to.equal(4);
+  });
+
+  it('stacks Scientist and gear together, same ability', function () {
     st({ talents: ['Scientist'], gearAbils: { crafting: 1 } });
     expect(T.effRank('crafting')).to.equal(2);
+  });
+
+  it('never lets Scientist take crafting below 1, even with negative gear headroom', function () {
+    // Scientist's "floor" guarantee only means the total can't drop below 1 -
+    // it is not a ceiling on how high paid rank + gear can push it.
+    st({ talents: ['Scientist'] });
+    expect(T.effRank('crafting')).to.be.at.least(1);
   });
 
   it('leaves non-crafting abilities untouched by Scientist', function () {
