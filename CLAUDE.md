@@ -29,11 +29,11 @@ data/talents.js     50 talents with machine-readable prerequisites
 data/skills.js      130 skills, 8 schools x 3 tiers
 data/presets.js     12 classes + Custom, and 4 companions
 data/recipes.js     499 crafting recipes, generated (see Crafting)
-scripts/verify_craft.py   invariant checks for the crafting page
-tests.html      Mocha + Chai (vendored), loads app.js and runs the suite
+tests.html      Mocha + Chai (vendored), loads app.js and craft.js, runs the suite
 vendor/         mocha.js, mocha.css, chai.js — fetched once, committed, no CDN
 test/rules.test.js  progression, gear, talents, pruning, slots
 test/data.test.js   data integrity and preset budgets
+test/craft.test.js  the crafting page's read of a planner build
 ```
 
 Two pages, no shared JS: the planner and the crafting reference each load
@@ -193,8 +193,8 @@ the barrels. Those are the bench checklist, and `slotHave()` reads them from
 A knife, bucket, hammer or cooking pot is *carried* and is genuinely
 **consumed** by some recipes: `Anvil + Knife = Crafted Dagger` eats the knife.
 Treating those as bench tools made eight recipes craftable from an empty bag.
-They are ordinary bag items. `verify_craft.py` asserts no recipe consists
-entirely of stations, which is what caught this.
+They are ordinary bag items. What caught this was asserting that no recipe
+consists entirely of stations.
 
 ### Tier ladders
 
@@ -229,9 +229,13 @@ wrong but is what the source says — left alone rather than silently corrected.
 
 ### Testing
 
-`python3 scripts/verify_craft.py`, run from the repo root. Same philosophy as
-the planner's throwaway heredocs, but kept as a file because the crafting data
-is large enough to be worth re-checking:
+`test/craft.test.js` covers `buildRank` — how the crafting page reads a planner
+build's Crafting and Smithing, including the Scientist talent — and runs in
+`tests.html` with the rest of the suite.
+
+The data invariants below were checked by `scripts/verify_craft.py`, a throwaway
+script since deleted. They still hold, and are worth re-checking by hand after
+any regeneration of `data/recipes.js`:
 
 - brace/paren balance in `craft.js`; every `el.*` resolves to a real `id`
 - every ingredient resolves to an item, every type to a known type,
@@ -287,13 +291,14 @@ error. Do not chase it.
 ## Testing
 
 `open tests.html` — Mocha and Chai vendored under `vendor/`, no build step, no
-Node, no network. Same shape as the rest of the project. 79 tests, green in
+Node, no network. Same shape as the rest of the project. 87 tests, green in
 about 20ms.
 
 | File | Covers |
 |---|---|
 | `test/rules.test.js` | pool maths, gear, talent prerequisites, pruning, slots, the soft rules |
 | `test/data.test.js` | data integrity: counts, references, preset budgets, unverified flags |
+| `test/craft.test.js` | `buildRank`: the crafting page's read of a planner build |
 
 The suite reaches into `app.js` through `window.DOS_TEST`, a hook at the foot of
 the IIFE that exposes the pure functions plus a `setState`. Everything is
@@ -321,10 +326,10 @@ change:
   well-meaning rebalance is caught rather than welcomed
 - the four unverified entries keep their flag
 
-Two things the tests do not cover: `craft.js`, which has its own checks in
-`scripts/verify_craft.py`, and any rendering — every assertion is against the
-pure functions. Structural checks on the HTML (`{}`/`()` balance, every `id=`
-wired, no `el.*` without an element) are still throwaway `python3` heredocs.
+What the tests do not cover is rendering — every assertion is against the pure
+functions, and of `craft.js` only `buildRank` is reached. Structural checks on
+the HTML and CSS (`{}`/`()` balance, every `id=` wired, no `el.*` without an
+element) are still throwaway `python3` heredocs.
 
 `talentMet`'s `req:{attr}` branch is live code that no shipped talent reaches,
 so the tests exercise it with a synthetic talent object rather than skipping it.
