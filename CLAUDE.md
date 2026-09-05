@@ -1,27 +1,39 @@
 # DOS1 EE Build Planner
 
-A single-page planner for **Divinity: Original Sin Enhanced Edition** character builds.
-No build step, no framework, no dependencies — open `index.html` in a browser.
+Two plain pages for **Divinity: Original Sin Enhanced Edition** — a character
+build planner and a crafting reference. No build step, no framework, no
+dependencies; open either in a browser.
 
-Built because respeccing in DOS1 EE is impractical, so builds need to be planned
-before they are committed in game.
+The planner exists because respeccing in DOS1 EE is impractical, so builds have
+to be planned before they are committed in game. The crafting page exists
+because the recipe list is 499 entries deep and the game tells you none of it.
 
 ```
-open index.html
+open index.html      # build planner
+open crafting.html   # crafting reference
 ```
 
 ## Files
 
 ```
 index.html      three-column layout, loads the five data files then app.js
-app.css         all styling, dark theme, single stylesheet
+app.css         all styling, dark theme, shared by both pages
 app.js          all logic in one IIFE, no modules
+crafting.html   the crafting reference, three modes over one dataset
+craft.js        crafting logic, same IIFE / full-redraw shape as app.js
+craft.css       crafting-only styles, layered on app.css
 data/rules.js       progression maths and the skill-slot table
 data/abilities.js   30 abilities across 6 categories
 data/talents.js     50 talents with machine-readable prerequisites
 data/skills.js      130 skills, 8 schools x 3 tiers
 data/presets.js     12 classes + Custom, and 4 companions
+data/recipes.js     499 crafting recipes, generated (see Crafting)
+scripts/verify_craft.py   invariant checks for the crafting page
 ```
+
+Two pages, no shared JS: the planner and the crafting reference each load
+their own data and keep their own `localStorage` key. They are linked in the
+top bar.
 
 Data files assign to `window.DOS_*` and are plain `<script>` tags, in dependency
 order. `app.js` reads them as globals.
@@ -127,6 +139,100 @@ Because pruning reads effective ranks, removing gear can invalidate skills the
 gear was paying for, and they are dropped — the same behaviour as lowering a paid
 rank, and correct, since the build is not legal without that item.
 
+## Crafting
+
+`crafting.html` answers three questions over one 499-recipe dataset:
+
+| Mode | Question |
+|---|---|
+| **What can I make?** | tick your bag and the stations you are at, get everything craftable now, plus every recipe you are one item short of |
+| **What should I keep?** | any junk item, and what it feeds into — Pixie Dust is in 31 recipes, Augmentor 30, Rope 24 |
+| **How do I make X?** | the full ingredient tree, marking what is in your bag and what must be found |
+
+State is one object under `dos1-planner:craft`, same full-redraw and delegated
+events as the planner:
+
+```js
+{
+  mode,                        // make | keep | how
+  bag: {name: true},           // what you are carrying
+  tools: {name: true},         // stations you are standing at
+  skills: {Crafting, Smithing},
+  typeFilter, hideOverLevel
+}
+```
+
+### The data
+
+`data/recipes.js` is generated from
+[sethxd/divinity_crafting](https://github.com/sethxd/divinity_crafting) v0.4
+and normalised. Regenerating it is a throwaway script, not a build step — the
+committed file is the artefact. The normalisation that matters:
+
+- **`|` alternatives become arrays.** `Water Barrel | Well` is two ways to
+  satisfy one slot, not a literal item name. 28 recipes rely on this.
+- **Raw asset ids are cleaned.** `LOOT_Wand_B` → `Wand (tier B)`,
+  `Crafted Sword 01` → `Crafted Sword (tier 1)`.
+- **Every ingredient is classified** as a station, an intermediate (it is also
+  some recipe's result), or world loot.
+
+### Stations are not tools
+
+**A station is fixed in the world and never consumed** — anvil, oven, well,
+the barrels. Those are the bench checklist, and `slotHave()` reads them from
+`state.tools`.
+
+A knife, bucket, hammer or cooking pot is *carried* and is genuinely
+**consumed** by some recipes: `Anvil + Knife = Crafted Dagger` eats the knife.
+Treating those as bench tools made eight recipes craftable from an empty bag.
+They are ordinary bag items. `verify_craft.py` asserts no recipe consists
+entirely of stations, which is what caught this.
+
+### Tier ladders
+
+148 of the 499 recipes — 30% — are the same inputs at different skill levels:
+`Anvil + Iron Bar` gives a tier 1 sword at Smithing 1 and a tier 5 at
+Smithing 5. Rendering those as five cards buries the actual question, which is
+*what does my skill get me*. `ladders` groups recipes by their input signature
+and each card shows one rung — the best your skill reaches — with the rest of
+the ladder beneath it, locked rungs dimmed.
+
+The same grouping runs in the ingredient tree, alongside a `drawn` set that
+stops a shared sub-tree being expanded under every parent. Large Healing Potion
+has four routes that all bottom out in Minor Healing Potion; the repeats
+collapse to "shown above".
+
+### Skill gates are shown, not hidden
+
+Recipes above your Crafting or Smithing level render greyed, never removed —
+the same choice the planner makes for ability shortfalls. **Hide above my
+skill** is opt-in.
+
+### Unverified
+
+**Stunning Arrowhead** carries `unverified: true`. The source records it with
+no ingredients at all; it is filled in as `Tooth + Knife` from fextralife,
+but the wiki says crafting level 1 and both the source and a second search say
+2, so the level is a guess. Same ⚠ tooltip convention as the planner's four
+unverified entries.
+
+Cloth boots are `Cloth Scraps + Anvil` at *Crafting*, not Smithing. That looks
+wrong but is what the source says — left alone rather than silently corrected.
+
+### Testing
+
+`python3 scripts/verify_craft.py`, run from the repo root. Same philosophy as
+the planner's throwaway heredocs, but kept as a file because the crafting data
+is large enough to be worth re-checking:
+
+- brace/paren balance in `craft.js`; every `el.*` resolves to a real `id`
+- every ingredient resolves to an item, every type to a known type,
+  every skill level in range
+- no raw asset ids survived the cleanup
+- the `craftable` flag agrees with the recipe list
+- no recipe is made entirely of stations
+- every CSS class used has a rule (bar the deliberate JS hooks)
+
 ## Things that look like bugs but are not
 
 **Companion sheets break player creation rules.** They are hand-authored by the
@@ -194,8 +300,11 @@ Deliberately out of scope so far:
 - **Level-by-level spend sheet** — the planned next slice: one row per level
   showing what to spend and when, reverse-derived from a finished build, so it
   can be followed at the keyboard. Would also surface deliberate point banking.
-- **Crafting** — explicitly deferred by the user as a separate project
 - **Lone Wolf** — the talent is listed but its +1 ability point per level is not
   applied to the pools
 - **Multi-character party view** — one build at a time was a deliberate choice;
   companions are just presets in the same dropdown
+- **Crafting skill from gear** — the crafting page asks for your Crafting and
+  Smithing levels directly rather than deriving them from a planned build, so a
+  +1 Crafting item is just a number you type in. The two pages do not share
+  state.
