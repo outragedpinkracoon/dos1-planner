@@ -340,5 +340,65 @@ describe('recipe data invariants', function () {
   });
 });
 
+
+// The bag lives on the planner's build record, so three places in two files
+// have to agree on the same field names: syncToBuild() writes them,
+// storeBuild() copies them forward when the planner saves over the same name,
+// and restoreBuild() strips them out of working state. The round-trip through
+// localStorage is untested by choice (see CLAUDE.md, "Not built"), but the
+// shape of what crosses between the pages is checked here.
+describe('the bag\'s trip between the two pages', function () {
+
+  var CRAFT_FIELDS = ['bag', 'benchTools', 'craftSkills'];
+
+  it('keeps the crafting page\'s fields off a fresh planner build', function () {
+    // blankState() is the planner's shape; the craft fields are added only by
+    // the crafting page, and must not be part of a new build.
+    var blank = window.DOS_TEST.blankState();
+    CRAFT_FIELDS.forEach(function (f) {
+      expect(blank, f).to.not.have.property(f);
+    });
+  });
+
+  it('reads a build\'s ranks straight off the record the planner saved', function () {
+    // What adoptBuild() hands to buildRank() is rec.state - a planner build,
+    // untranslated. A build saved by the planner has to be readable as-is.
+    var planner = window.DOS_TEST.presetState('wizard');
+    expect(C.buildRank(planner, 'Crafting')).to.be.a('number');
+    expect(C.buildRank(planner, 'Smithing')).to.be.a('number');
+  });
+
+  it('survives a planner build that has never seen the crafting page', function () {
+    // No bag, no benchTools, no craftSkills - every read must default rather
+    // than throw, since most builds are saved before crafting is opened.
+    var planner = window.DOS_TEST.presetState('fighter');
+    expect(planner.bag).to.equal(undefined);
+    cs({ bag: planner.bag || {}, tools: planner.benchTools || {},
+         override: planner.craftSkills || null });
+    expect(C.skillLevels()).to.deep.equal({ Crafting: 0, Smithing: 0 });
+    expect(C.slotHave(['Anvil'])).to.equal(null);
+  });
+
+  it('gives a Scientist build its crafting rank on this page', function () {
+    // The end-to-end reason buildRank exists: a build that leans on the talent
+    // rather than paid ranks must not read as unskilled here.
+    var planner = window.DOS_TEST.blankState();
+    planner.talents = ['Scientist'];
+    expect(C.buildRank(planner, 'Crafting')).to.equal(1);
+
+    cs({ build: null, skills: { Crafting: C.buildRank(planner, 'Crafting'),
+                                Smithing: C.buildRank(planner, 'Smithing') } });
+    var lvl1 = RECIPES.find(function (r) { return r.skill === 'Crafting' && r.level === 1; });
+    expect(C.skillOK(lvl1)).to.equal(true);
+  });
+
+  it('treats an emptied bag as empty, not as absent', function () {
+    // Clearing the bag writes {} rather than deleting the field; that must not
+    // read back as "no bag recorded" and resurrect stale contents.
+    cs({ bag: {} });
+    expect(C.slotHave(['Knife'])).to.equal(null);
+  });
+});
+
 });
 })();

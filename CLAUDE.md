@@ -346,3 +346,9 @@ Deliberately out of scope so far:
   Smithing levels directly rather than deriving them from a planned build, so a
   +1 Crafting item is just a number you type in. The two pages do not share
   state.
+- **Anything that goes through `localStorage`** — the save/load round-trip and
+  the bag → build → crafting page path both do, so `storeBuild`, `restoreBuild`,
+  `adoptBuild` and `syncToBuild` are untested: the suite would be writing over
+  real saved builds. Both ends of the crafting chain are covered (`buildRank`,
+  `skillLevels`) and so is the shape of what crosses between the pages; only
+  the trip through storage is not. See `stuff.todo`.

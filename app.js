@@ -685,9 +685,11 @@ function findPreset(id) {
          PRESETS.companions.find(function (c) { return c.id === id; });
 }
 
-function applyPreset(id) {
+// The state a preset produces, with no rendering. Split out so the tests can
+// reach it: applyPreset() ends in renderAll(), which needs the planner's DOM.
+function presetState(id) {
   var p = findPreset(id);
-  if (!p) return;
+  if (!p) return null;
   var fresh = blankState();
   fresh.preset = id;
   fresh.buildName = null;                          // a preset is a fresh, unsaved build
@@ -717,6 +719,12 @@ function applyPreset(id) {
   // A class hands you its starting skills even when your rank grants no slot for
   // them - Fighter opens with Whirlwind at Man-at-Arms 1, which has no adept slot.
   fresh.granted = (p.skills || []).slice();
+  return fresh;
+}
+
+function applyPreset(id) {
+  var fresh = presetState(id);
+  if (!fresh) return;
   state = fresh;
   renderAll();
 }
@@ -983,6 +991,7 @@ window.DOS_TEST = {
   rank: rank, effRank: effRank, effAttr: effAttr, attrFloor: attrFloor,
   hasTalent: hasTalent, talentAbilBonus: talentAbilBonus,
   talentMet: talentMet, pruneTalents: pruneTalents,
+  findPreset: findPreset, presetState: presetState,
   slotsFor: slotsFor, knownIn: knownIn, countIn: countIn,
   skillByName: skillByName, skillLock: skillLock,
   apPenalty: apPenalty, attrShortfall: attrShortfall,

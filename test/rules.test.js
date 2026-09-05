@@ -703,6 +703,227 @@ describe('helper edge cases', function () {
   });
 });
 
+
+// The preset is where the two historic bugs lived - Fighter opening with an
+// adept skill it has no slot for, and Wolgraff starting under the base 5 - and
+// it is the one path that writes every part of the state at once. presetState()
+// is applyPreset() without the renderAll().
+describe('applying a preset', function () {
+
+  function P(id) { return T.presetState(id); }
+
+  it('returns null for an id that is not a preset', function () {
+    expect(T.presetState('no-such-class')).to.equal(null);
+  });
+
+  it('turns a class\'s attribute bonuses into absolute values on top of base 5', function () {
+    var f = window.DOS_PRESETS.classes.find(function (c) { return c.id === 'fighter'; });
+    var s = P('fighter');
+    Object.keys(f.attrs).forEach(function (k) {
+      expect(s.attrs[k], k).to.equal(R.attributes.base + f.attrs[k]);
+    });
+  });
+
+  it('leaves a class at base 5 on attributes it does not raise', function () {
+    var f = window.DOS_PRESETS.classes.find(function (c) { return c.id === 'fighter'; });
+    var s = P('fighter');
+    R.attributes.list.forEach(function (a) {
+      if (!(a.id in (f.attrs || {}))) expect(s.attrs[a.id], a.id).to.equal(R.attributes.base);
+    });
+  });
+
+  it('keeps the level you were on when switching class', function () {
+    st({ level: 12 });
+    expect(P('fighter').level).to.equal(12);
+  });
+
+  it('spends exactly the creation budget for every class', function () {
+    window.DOS_PRESETS.classes.forEach(function (c) {
+      if (c.id === 'custom') return;
+      T.setState(P(c.id));
+      expect(T.attrSpent(), c.name + ' attributes').to.equal(R.attributes.creationPoints);
+      expect(T.abilSpent(), c.name + ' abilities').to.equal(R.abilityPoints.creationPoints);
+      expect(T.talSpent(), c.name + ' talents').to.equal(R.talents.creationPoints);
+    });
+  });
+
+  it('grants a class its starting skills, exempt from the slot economy', function () {
+    // Fighter opens with Whirlwind, an adept skill, at Man-at-Arms 1 - which
+    // grants no adept slot. Pruning used to delete it on load.
+    var s = P('fighter');
+    expect(s.skills).to.contain('Whirlwind');
+    expect(s.granted).to.contain('Whirlwind');
+    T.setState(s);
+    T.pruneSkills();
+    expect(T.getState().skills, 'survives a prune').to.contain('Whirlwind');
+  });
+
+  it('does not mark a class\'s talents as granted - they met their own rules', function () {
+    expect(P('fighter').grantedTalents).to.deep.equal([]);
+  });
+
+  it('takes a companion to its own join level, not the level you were on', function () {
+    st({ level: 18 });
+    var m = window.DOS_PRESETS.companions.find(function (c) { return c.id === 'madora'; });
+    expect(P('madora').level).to.equal(m.joinLevel);
+  });
+
+  it('reads companion attributes as absolute, not as bonuses on base 5', function () {
+    var m = window.DOS_PRESETS.companions.find(function (c) { return c.id === 'madora'; });
+    var s = P('madora');
+    Object.keys(m.attrsTotal).forEach(function (k) {
+      expect(s.attrs[k], k).to.equal(m.attrsTotal[k]);
+    });
+  });
+
+  it('floors a companion at its own value when it starts below base 5', function () {
+    // Wolgraff's Strength 4 must not read as 1 point refunded.
+    var s = P('wolgraff');
+    T.setState(s);
+    expect(s.attrs.strength).to.equal(4);
+    expect(T.attrFloor('strength')).to.equal(4);
+    expect(T.attrFloor('dexterity')).to.equal(R.attributes.base);
+  });
+
+  it('never floors a companion above the base, only below it', function () {
+    window.DOS_PRESETS.companions.forEach(function (c) {
+      var s = P(c.id);
+      R.attributes.list.forEach(function (a) {
+        expect(s.attrFloor[a.id], c.name + ' ' + a.id).to.be.at.most(R.attributes.base);
+      });
+    });
+  });
+
+  it('marks companion talents as granted so prerequisites are skipped', function () {
+    // Madora keeps Comeback Kid without the Willpower 5 it would need.
+    var s = P('madora');
+    T.setState(s);
+    expect(s.grantedTalents).to.deep.equal(s.talents);
+    T.pruneTalents();
+    expect(T.getState().talents).to.deep.equal(s.talents);
+  });
+
+  it('leaves every companion sheet intact through a full prune', function () {
+    // The published sheets overspend and break creation rules; a prune must
+    // not quietly repair them.
+    window.DOS_PRESETS.companions.forEach(function (c) {
+      var s = P(c.id);
+      var skills = s.skills.slice(), talents = s.talents.slice();
+      T.setState(s);
+      T.pruneTalents();
+      T.pruneSkills();
+      expect(T.getState().skills, c.name + ' skills').to.deep.equal(skills);
+      expect(T.getState().talents, c.name + ' talents').to.deep.equal(talents);
+    });
+  });
+
+  it('starts a preset as a fresh unsaved build with no gear', function () {
+    st({ buildName: 'Old Save', gearAttrs: { strength: 5 }, gearAbils: { crafting: 2 } });
+    var s = P('fighter');
+    expect(s.buildName).to.equal(null);
+    expect(s.gearAttrs).to.deep.equal({});
+    expect(s.gearAbils).to.deep.equal({});
+  });
+
+  it('copies preset data rather than aliasing it', function () {
+    // A preset applied twice must not accumulate edits from the first.
+    var f = window.DOS_PRESETS.classes.find(function (c) { return c.id === 'fighter'; });
+    var s = P('fighter');
+    s.skills.push('Bogus');
+    s.abilities.geomancer = 5;
+    expect(f.skills).to.not.contain('Bogus');
+    expect(P('fighter').skills).to.not.contain('Bogus');
+    expect(P('fighter').abilities.geomancer).to.equal(undefined);
+  });
+
+  it('leaves Custom as the blank slate', function () {
+    var s = P('custom');
+    T.setState(s);
+    expect(T.attrSpent()).to.equal(0);
+    expect(T.abilSpent()).to.equal(0);
+    expect(s.skills).to.deep.equal([]);
+  });
+});
+
+
+// Pruning runs at the top of every renderAll(), so a single change cascades:
+// lowering a level can cost a talent, and losing that talent can cost the
+// ability rank it was paying for, and that can cost the skills the rank
+// slotted. These are the sequences a user actually performs.
+describe('cascading changes', function () {
+
+  it('drops a skill when the rank that slotted it is lowered', function () {
+    var adept = window.DOS_SKILLS.filter(function (x) {
+      return x.s === 'geomancer' && x.t === 'adept';
+    }).slice(0, 2).map(function (x) { return x.n; });
+    st({ abilities: { geomancer: 2 }, skills: adept.slice() });   // 2 adept slots
+    T.pruneSkills();
+    expect(T.getState().skills).to.deep.equal(adept);
+
+    st({ abilities: { geomancer: 1 }, skills: adept.slice() });   // 0 adept slots
+    T.pruneSkills();
+    expect(T.getState().skills).to.deep.equal([]);
+  });
+
+  it('loses Scientist\'s rank, and the skills it slotted, when the talent goes', function () {
+    // Scientist is the one talent that grants a rank, so dropping it is the
+    // clearest case of a talent change invalidating skills.
+    st({ talents: ['Scientist'] });
+    expect(T.effRank('crafting')).to.equal(1);
+    st({ talents: [] });
+    expect(T.effRank('crafting')).to.equal(0);
+    expect(T.slotsFor('crafting').novice).to.equal(0);
+  });
+
+  it('prunes talents and skills together in one pass', function () {
+    var lv = window.DOS_TALENTS.find(function (t) { return t.req && t.req.level; });
+    var novice = window.DOS_SKILLS.filter(function (x) {
+      return x.s === 'geomancer' && x.t === 'novice';
+    }).slice(0, 5).map(function (x) { return x.n; });
+
+    var over = { abilities: { geomancer: 1 }, skills: novice.slice() };
+    if (lv) { over.level = lv.req.level - 1; over.talents = [lv.name]; }
+    st(over);
+    T.pruneTalents();
+    T.pruneSkills();
+    expect(T.getState().skills).to.have.lengthOf(3);      // rank 1 = 3 novice
+    if (lv) expect(T.getState().talents).to.deep.equal([]);
+  });
+
+  it('re-legalises nothing on its own - pruning only removes', function () {
+    // Raising a rank back does not restore what an earlier prune dropped.
+    var novice = window.DOS_SKILLS.filter(function (x) {
+      return x.s === 'geomancer' && x.t === 'novice';
+    }).slice(0, 5).map(function (x) { return x.n; });
+    st({ abilities: { geomancer: 1 }, skills: novice.slice() });
+    T.pruneSkills();
+    var after = T.getState().skills.slice();
+    st({ abilities: { geomancer: 5 }, skills: after });
+    T.pruneSkills();
+    expect(T.getState().skills).to.deep.equal(after);
+  });
+
+  it('keeps a companion legal when its level is raised past the join level', function () {
+    var s = T.presetState('madora');
+    s.level = 20;
+    T.setState(s);
+    var skills = s.skills.slice();
+    T.pruneTalents();
+    T.pruneSkills();
+    expect(T.getState().skills).to.deep.equal(skills);
+  });
+
+  it('survives being taken to level 1 with a full build loaded', function () {
+    // Nothing should throw, and the granted entries must still be there.
+    var s = T.presetState('fighter');
+    s.level = 1;
+    T.setState(s);
+    T.pruneTalents();
+    T.pruneSkills();
+    expect(T.getState().skills).to.contain('Whirlwind');
+  });
+});
+
 });   // Build character tests
 
 })();
