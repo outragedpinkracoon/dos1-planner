@@ -9,9 +9,11 @@ css  = open('craft.css').read()
 fail = []
 
 # --- brace/paren balance ---
+# Comments come out first: a quote inside a comment ('calls it "Smithing"')
+# would otherwise open a phantom string literal and eat real braces.
 def balance(src, label):
     s = re.sub(r'/\*.*?\*/', '', src, flags=re.S)
-    s = re.sub(r'(?m)^\s*//.*$', '', s)
+    s = re.sub(r'(?m)//.*$', '', s)
     s = re.sub(r"'(?:\\.|[^'\\])*'", "''", s)
     s = re.sub(r'"(?:\\.|[^"\\])*"', '""', s)
     for o, c in (('{','}'), ('(',')'), ('[',']')):

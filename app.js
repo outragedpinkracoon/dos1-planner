@@ -31,7 +31,6 @@ function blankState() {
     gearAbils: {},   // ability id -> rank bonus from equipment
     showGear: false, // whether the gear steppers are visible
     gearSlots: true  // do gear-granted ability ranks unlock skill slots
-
   };
 }
 
@@ -99,9 +98,19 @@ function storeBuild(name) {
   if (!name) return { ok: false, why: 'Give the build a name first.' };
 
   var builds = loadBuilds(),
-      existed = Object.prototype.hasOwnProperty.call(builds, name);
+      existed = Object.prototype.hasOwnProperty.call(builds, name),
+      prior = existed && builds[name].state,
+      next = snapshot();
 
-  builds[name] = { savedAt: Date.now(), state: snapshot() };
+  // Bag/tools/skill-override live only on the crafting page's copy of this
+  // build. Saving the planner side must not erase them.
+  if (prior) {
+    next.bag = prior.bag;
+    next.benchTools = prior.benchTools;
+    next.craftSkills = prior.craftSkills;
+  }
+
+  builds[name] = { savedAt: Date.now(), state: next };
   if (!saveBuilds(builds)) return { ok: false, why: 'Could not save - storage is full or blocked.' };
 
   state.buildName = name;
@@ -113,6 +122,11 @@ function restoreBuild(name) {
   var rec = loadBuilds()[name];
   if (!rec || !rec.state) return false;
   state = Object.assign(blankState(), rec.state);
+  // bag/benchTools/craftSkills live only on the build record, never on the
+  // working state - crafting.html reads and writes them there directly.
+  delete state.bag;
+  delete state.benchTools;
+  delete state.craftSkills;
   state.buildName = name;
   save();
   return true;
@@ -135,6 +149,14 @@ function describeBuild(rec) {
 }
 
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+// Everything else interpolated here comes from the data files, but bag item
+// names arrive via localStorage, which is hand-editable.
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
 
 // ---------------------------------------------------------------- pools
 // Attributes: 5 at creation + 1 per even level.
@@ -565,6 +587,43 @@ function renderBuilds() {
     typed && Object.prototype.hasOwnProperty.call(builds, typed) ? 'Overwrite' : 'Save';
 }
 
+// The bag itself is edited on the crafting page - that is where the 600-item
+// vocabulary lives, and it is stored on the saved build record, not on the
+// working state, so this page can only show it once the build has been saved.
+function renderBagPeek() {
+  var rec = state.buildName ? loadBuilds()[state.buildName] : null,
+      bag = (rec && rec.state && rec.state.bag) || {},
+      benchTools = (rec && rec.state && rec.state.benchTools) || {},
+      names = Object.keys(bag).sort(),
+      tools = Object.keys(benchTools).length;
+
+  el.bagSub.textContent = names.length ? names.length + ' items' : '';
+
+  if (!state.buildName) {
+    el.bagHint.textContent = 'Save this build to give it a bag on the crafting page.';
+    el.bagPeek.innerHTML = '';
+  } else if (!names.length && !tools) {
+    el.bagHint.textContent = 'Nothing carried yet. The crafting page saves what ' +
+      'you pick up against this build.';
+    el.bagPeek.innerHTML = '';
+  } else {
+    el.bagHint.textContent = tools
+      ? tools + (tools === 1 ? ' station' : ' stations') + ' at the bench.'
+      : '';
+    el.bagPeek.innerHTML = names.slice(0, 12).map(function (n) {
+      return '<span class="peek">' + escapeHtml(n) + '</span>';
+    }).join('') +
+      (names.length > 12
+        ? '<span class="peek more">+' + (names.length - 12) + ' more</span>'
+        : '');
+  }
+
+  // Carry the loaded build through, so crafting.html opens on the same character.
+  el.bagOpen.href = state.buildName
+    ? 'crafting.html?build=' + encodeURIComponent(state.buildName)
+    : 'crafting.html';
+}
+
 function renderAll() {
   pruneTalents();
   pruneSkills();
@@ -585,6 +644,7 @@ function renderAll() {
     !(Object.keys(state.gearAttrs).length || Object.keys(state.gearAbils).length);
   var p = findPreset(state.preset);
   el.presetBlurb.textContent = p ? p.blurb : '';
+  renderBagPeek();
   save();
 }
 
@@ -826,7 +886,8 @@ function init() {
    'talentFilter','rulesNotes','resetBtn',
    'skillList','skillSearch','skillFilter','skillCount',
    'buildName','saveBtn','saveHint','buildList','exportBtn','importBtn','importFile',
-   'gearToggle','gearSlotsToggle','gearSlotsWrap','gearClear'
+   'gearToggle','gearSlotsToggle','gearSlotsWrap','gearClear',
+   'bagSub','bagHint','bagPeek','bagOpen'
   ].forEach(function (id) { el[id] = document.getElementById(id); });
 
   el.levelSlider.max = R.planLevel;

@@ -371,3 +371,13 @@ body {
 
 /* a pip filled by gear rather than by spent points */
 .pip.gear { background: #2f5766; border-color: #6ab0c9; }
+
+/* ---------- crafting bag summary ---------- */
+.bag-peek { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 9px; }
+.bag-peek:empty { margin-bottom: 0; }
+.peek {
+  font-size: 11px; padding: 2px 6px; border-radius: 3px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--dim);
+}
+.peek.more { font-style: italic; }
+.linkbtn { display: inline-block; text-decoration: none; }

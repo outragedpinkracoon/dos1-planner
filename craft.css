@@ -168,3 +168,13 @@
   display: inline-flex; align-items: center; gap: 6px;
   margin: 0; white-space: nowrap;
 }
+
+/* the build a bag belongs to */
+.from-build {
+  font-style: normal; font-size: 10px; color: var(--dim);
+  margin-left: 6px; cursor: help;
+}
+.linkish {
+  background: none; border: 0; padding: 0; font: inherit; font-size: 11px;
+  color: var(--accent); cursor: pointer; text-decoration: underline;
+}

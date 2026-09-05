@@ -7,7 +7,32 @@ var DATA    = window.DOS_RECIPES;
 var RECIPES = DATA.recipes;
 var ITEMS   = DATA.items;
 
-var KEY = 'dos1-planner:craft';
+var KEY = 'dos1-planner:craft';           // the loose bag, when no build is loaded
+var BUILDS_KEY = 'dos1-planner:builds';   // the planner's named saves
+
+/* The two crafting abilities, as the planner stores them. The recipe data calls
+   blacksmithing "Smithing". */
+var ABIL = { Crafting: 'crafting', Smithing: 'blacksmithing' };
+
+function loadBuilds() {
+  try {
+    var b = JSON.parse(localStorage.getItem(BUILDS_KEY) || '{}');
+    return b && typeof b === 'object' ? b : {};
+  } catch (e) { return {}; }
+}
+
+function saveBuilds(b) {
+  try { localStorage.setItem(BUILDS_KEY, JSON.stringify(b)); return true; }
+  catch (e) { return false; }
+}
+
+/* Points-bought rank plus any gear bonus. Deliberately not the planner's
+   effRank(): that one is gated on gearSlots, which is a rule about skill slots
+   and has nothing to do with whether a +1 Crafting ring helps you craft. */
+function buildRank(bs, name) {
+  var id = ABIL[name];
+  return ((bs.abilities || {})[id] || 0) + ((bs.gearAbils || {})[id] || 0);
+}
 
 /* ---------- item lookup ---------- */
 
@@ -57,15 +82,64 @@ function ingredientsOf(r) {
 function blank() {
   return {
     mode: 'make',
+    build: null,                 // name of the loaded build, null = loose bag
     bag: {},                     // name -> true
-    tools: {},                   // name -> true, tools present at the bench
-    skills: { Crafting: 0, Smithing: 0 },
+    tools: {},                   // name -> true, stations at the bench
+    skills: { Crafting: 0, Smithing: 0 },   // only used when no build is loaded
+    override: null,              // {Crafting,Smithing} typed over a build's ranks
     typeFilter: '',
     hideOverLevel: false
   };
 }
 
 var state = load();
+
+/* ---------- the loaded build ----------
+   When a build is loaded the bag belongs to that character: it is read from and
+   written straight back to the planner's saved-builds store, so the two pages
+   cannot drift. With no build loaded the bag is loose and lives under KEY. */
+
+function currentBuild() {
+  if (!state.build) return null;
+  var rec = loadBuilds()[state.build];
+  return rec && rec.state ? rec : null;
+}
+
+/* Write the bag back into the build it belongs to. */
+function syncToBuild() {
+  if (!state.build) return;
+  var builds = loadBuilds(), rec = builds[state.build];
+  if (!rec || !rec.state) return;
+  rec.state.bag = state.bag;
+  rec.state.benchTools = state.tools;
+  rec.state.craftSkills = state.override;
+  saveBuilds(builds);
+}
+
+/* Pull bag, stations and skills out of a build and onto the page. */
+function adoptBuild(name) {
+  var rec = loadBuilds()[name];
+  if (!rec || !rec.state) return false;
+  state.build = name;
+  state.bag = rec.state.bag || {};
+  state.tools = rec.state.benchTools || {};
+  state.override = rec.state.craftSkills || null;
+  return true;
+}
+
+/* The skill levels in force: a typed override, else the build's ranks, else the
+   manual numbers used when planning without a build. */
+function skillLevels() {
+  if (state.override) return state.override;
+  var rec = currentBuild();
+  if (rec) {
+    return {
+      Crafting: buildRank(rec.state, 'Crafting'),
+      Smithing: buildRank(rec.state, 'Smithing')
+    };
+  }
+  return state.skills;
+}
 
 function load() {
   var s = blank();
@@ -82,6 +156,7 @@ function load() {
 
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  syncToBuild();
 }
 
 /* ---------- the matcher ---------- */
@@ -112,7 +187,7 @@ function status(r) {
 /* Does the character's skill cover this recipe? Level 0 / no skill is always yes. */
 function skillOK(r) {
   if (!r.skill || !r.level) return true;
-  return (state.skills[r.skill] || 0) >= r.level;
+  return (skillLevels()[r.skill] || 0) >= r.level;
 }
 
 /* ---------- rendering ---------- */
@@ -120,7 +195,8 @@ function skillOK(r) {
 var el = {};
 ['skillRows','toolRows','bagList','bagCount','bagEmpty','bagSearch','bagSuggest',
  'makeList','makeCount','nearList','nearCount','typeFilter','hideOverLevel',
- 'keepSearch','keepList','howSearch','howResult','clearBag'
+ 'keepSearch','keepList','howSearch','howResult','clearBag',
+ 'buildPick','buildNote','skillNote'
 ].forEach(function (id) { el[id] = document.getElementById(id); });
 
 function esc(s) {
@@ -129,8 +205,30 @@ function esc(s) {
   });
 }
 
+function renderBuildPicker() {
+  var builds = loadBuilds(), names = Object.keys(builds).sort();
+
+  el.buildPick.innerHTML =
+    '<option value="">Loose bag (no build)</option>' +
+    names.map(function (n) {
+      var s = builds[n].state || {}, c = Object.keys(s.bag || {}).length;
+      return '<option value="' + esc(n) + '"' + (n === state.build ? ' selected' : '') + '>' +
+        esc(n) + (c ? ' \u00b7 ' + c + ' items' : '') + '</option>';
+    }).join('');
+
+  // A build named in the URL but since deleted: fall back rather than wedge.
+  if (state.build && !builds[state.build]) {
+    state.build = null;
+    state.override = null;
+  }
+  el.buildNote.textContent = names.length
+    ? ''
+    : 'No saved builds yet. Save one on the planner to keep a bag against it.';
+}
+
 function renderAll() {
   renderModes();
+  renderBuildPicker();
   renderSkills();
   renderTools();
   renderBag();
@@ -150,16 +248,30 @@ function renderModes() {
 }
 
 function renderSkills() {
+  var lv = skillLevels(), rec = currentBuild(), overridden = !!state.override;
+
   el.skillRows.innerHTML = ['Crafting', 'Smithing'].map(function (s) {
-    var v = state.skills[s] || 0;
+    var v = lv[s] || 0,
+        from = rec ? buildRank(rec.state, s) : null,
+        differs = rec && overridden && v !== from;
     return '<div class="stat">' +
-      '<span class="stat-name">' + s + '</span>' +
+      '<span class="stat-name">' + s +
+        (differs ? '<i class="from-build" title="' + s + ' ' + from +
+                   ' in this build">was ' + from + '</i>' : '') +
+      '</span>' +
       '<span class="stat-ctrl">' +
         '<button class="step" data-skill="' + s + '" data-d="-1"' + (v <= 0 ? ' disabled' : '') + '>&minus;</button>' +
-        '<span class="stat-val">' + v + '</span>' +
+        '<span class="stat-val' + (differs ? ' boosted' : '') + '">' + v + '</span>' +
         '<button class="step" data-skill="' + s + '" data-d="1"' + (v >= 5 ? ' disabled' : '') + '>+</button>' +
       '</span></div>';
   }).join('');
+
+  el.skillNote.innerHTML = rec
+    ? (overridden
+        ? 'Typed over <b>' + esc(state.build) + '</b>. ' +
+          '<button class="linkish" data-resetskills>Use the build\u2019s ranks</button>'
+        : 'From <b>' + esc(state.build) + '</b>, including gear.')
+    : 'Recipes above your level are shown greyed, never hidden.';
 }
 
 function renderTools() {
@@ -403,8 +515,37 @@ document.querySelector('.modebar').addEventListener('click', function (e) {
 el.skillRows.addEventListener('click', function (e) {
   var b = e.target.closest('[data-skill]');
   if (!b || b.disabled) return;
-  var s = b.dataset.skill;
-  state.skills[s] = Math.max(0, Math.min(5, (state.skills[s] || 0) + (+b.dataset.d)));
+  var s = b.dataset.skill, lv = skillLevels();
+  var next = Math.max(0, Math.min(5, (lv[s] || 0) + (+b.dataset.d)));
+
+  if (state.build) {
+    // Typing over a build's ranks starts an override, seeded from what is
+    // showing so the other skill does not jump.
+    state.override = state.override || { Crafting: lv.Crafting, Smithing: lv.Smithing };
+    state.override[s] = next;
+  } else {
+    state.skills[s] = next;
+  }
+  renderAll();
+});
+
+el.skillNote.addEventListener('click', function (e) {
+  if (!e.target.closest('[data-resetskills]')) return;
+  state.override = null;
+  renderAll();
+});
+
+el.buildPick.addEventListener('change', function () {
+  var name = el.buildPick.value;
+  if (!name) {
+    // Back to a loose bag. The build keeps whatever was last synced to it.
+    state.build = null;
+    state.override = null;
+    state.bag = {};
+    state.tools = {};
+  } else {
+    adoptBuild(name);
+  }
   renderAll();
 });
 
@@ -479,9 +620,20 @@ el.keepSearch.addEventListener('input', renderKeep);
 el.howSearch.addEventListener('input', renderHow);
 
 el.clearBag.addEventListener('click', function () {
+  if (state.build &&
+      Object.keys(state.bag).length &&
+      !confirm('Empty the bag saved against "' + state.build + '"?')) return;
   state.bag = {}; state.tools = {};
   renderAll();
 });
+
+/* ?build=Name opens straight onto that character's bag, which is how the
+   planner's "Open crafting" link arrives. */
+var qs = /[?&]build=([^&]*)/.exec(location.search);
+if (qs) {
+  var want = decodeURIComponent(qs[1].replace(/\+/g, ' '));
+  if (loadBuilds()[want]) adoptBuild(want);
+}
 
 /* Deep link: crafting.html#Some Item opens the tree for it. */
 if (location.hash.length > 1) {
