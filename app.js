@@ -167,10 +167,11 @@ function attrSpent() {
   }, 0);
 }
 
-// Abilities: 5 at creation + per-level table, cumulative.
+// Abilities: 5 at creation + per-level table, cumulative, + All Skilled Up's flat +2.
 function abilTotal() {
   var t = R.abilityPoints.creationPoints;
   for (var l = 2; l <= state.level; l++) t += R.abilityPoints.perLevel(l);
+  if (hasTalent('All Skilled Up')) t += 2;
   return t;
 }
 // Rank n costs n, so rank R costs R*(R+1)/2 cumulative.
@@ -198,16 +199,17 @@ function gearAbil(id) { return state.gearAbils[id] || 0; }
 
 function effAttr(id) { return state.attrs[id] + gearAttr(id); }
 
+function hasTalent(name) {
+  return state.talents.indexOf(name) >= 0 ||
+    (state.grantedTalents && state.grantedTalents.indexOf(name) >= 0);
+}
+
 var SCIENTIST_ABILS = ['blacksmithing', 'crafting'];
 
 // Scientist's +1 Blacksmithing/+1 Crafting is a flat, uncosted floor, same
 // spirit as gear: it never touches abilSpent, only what effRank reports.
-function hasScientist() {
-  return state.talents.indexOf('Scientist') >= 0 ||
-    (state.grantedTalents && state.grantedTalents.indexOf('Scientist') >= 0);
-}
 function talentAbilFloor(id) {
-  return (hasScientist() && SCIENTIST_ABILS.indexOf(id) >= 0) ? 1 : 0;
+  return (hasTalent('Scientist') && SCIENTIST_ABILS.indexOf(id) >= 0) ? 1 : 0;
 }
 
 function effRank(id) {
