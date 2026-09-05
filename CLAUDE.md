@@ -83,7 +83,9 @@ gate in game:
   attrFloor: {...} | null,        // per-attribute minimum, for companions below base 5
   gearAttrs: {intelligence: 1},   // equipment bonuses, never cost pool points
   gearAbils: {geomancer: 1},
-  showGear: false                 // are the gear steppers visible
+  showGear: false,                // are the gear steppers visible
+  onlyLearnableTalents: false,    // "Only show learnable" talent filter
+  onlyLearnableSkills: false      // "Only show learnable" skill filter
 }
 ```
 

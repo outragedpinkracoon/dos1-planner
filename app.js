@@ -29,7 +29,9 @@ function blankState() {
     buildName: null, // name of the saved build currently loaded, if any
     gearAttrs: {},   // attribute id -> bonus from equipment
     gearAbils: {},   // ability id -> rank bonus from equipment
-    showGear: false  // whether the gear steppers are visible
+    showGear: false,       // whether the gear steppers are visible
+    onlyLearnableTalents: false,
+    onlyLearnableSkills: false
   };
 }
 
@@ -54,6 +56,8 @@ function load() {
     base.gearAttrs = s.gearAttrs || {};
     base.gearAbils = s.gearAbils || {};
     base.showGear = !!s.showGear;
+    base.onlyLearnableTalents = !!s.onlyLearnableTalents;
+    base.onlyLearnableSkills = !!s.onlyLearnableSkills;
     return base;
   } catch (e) { return blankState(); }
 }
@@ -455,7 +459,7 @@ function renderAbilities() {
 
 function renderTalents() {
   var left = talTotal() - talSpent(),
-      onlyAvail = el.talentFilter.checked;
+      onlyAvail = state.onlyLearnableTalents;
 
   el.talentList.innerHTML = '';
   TALENTS.forEach(function (t) {
@@ -484,7 +488,7 @@ function renderTalents() {
 
 function renderSkills() {
   var q = (el.skillSearch.value || '').trim().toLowerCase(),
-      onlyLearnable = el.skillFilter.checked;
+      onlyLearnable = state.onlyLearnableSkills;
 
   el.skillList.innerHTML = '';
   var shown = 0;
@@ -647,6 +651,8 @@ function renderAll() {
   el.levelSlider.value = state.level;
   el.presetSelect.value = state.preset;
   el.gearToggle.checked = state.showGear;
+  el.talentFilter.checked = state.onlyLearnableTalents;
+  el.skillFilter.checked = state.onlyLearnableSkills;
   // stays mounted and merely disables, so the bar never reflows
   el.gearClear.disabled =
     !(Object.keys(state.gearAttrs).length || Object.keys(state.gearAbils).length);
@@ -768,7 +774,10 @@ function bind() {
     state.talents.push(name);
     renderAll();
   });
-  el.talentFilter.addEventListener('change', renderTalents);
+  el.talentFilter.addEventListener('change', function () {
+    state.onlyLearnableTalents = el.talentFilter.checked;
+    renderAll();
+  });
 
   // skills
   el.skillList.addEventListener('click', function (e) {
@@ -785,7 +794,10 @@ function bind() {
     renderAll();
   });
   el.skillSearch.addEventListener('input', renderSkills);
-  el.skillFilter.addEventListener('change', renderSkills);
+  el.skillFilter.addEventListener('change', function () {
+    state.onlyLearnableSkills = el.skillFilter.checked;
+    renderAll();
+  });
 
 // gear bonuses
   el.gearToggle.addEventListener('change', function () {
