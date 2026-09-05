@@ -8,7 +8,7 @@ window.DOS_ABILITIES = [
   { id:'two_handed',     name:'Two-Handed',         cat:'Weapons', desc:'+crit chance and crit multiplier with two-handed weapons (same scaling as Crossbow).' },
   { id:'wand',           name:'Wand',               cat:'Weapons', desc:'+10% damage from main-hand wand attacks per rank.' },
 
-  { id:'tenebrium',      name:'Tenebrium',          cat:'Weapons', desc:'Lets you handle tenebrium weapons without disease and adds tenebrium damage. Unlocked during the main quest.' },
+  { id:'tenebrium',      name:'Tenebrium',          cat:'Weapons', unverified:true, desc:'Lets you handle tenebrium weapons without disease and adds tenebrium damage. Unlocked during the main quest.' },
 
   // ---- Defence ----
   { id:'armour_spec',    name:'Armour Specialist',  cat:'Defence', desc:'+armour rating and reduces movement penalty from heavy armour.' },

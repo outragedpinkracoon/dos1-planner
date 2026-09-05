@@ -350,7 +350,9 @@ function renderAbilities() {
       row.className = 'abil';
       row.innerHTML =
         '<div class="abil-name">' + a.name +
-          (a.school ? '<span class="school-tag">school</span>' : '') + '</div>' +
+          (a.school ? '<span class="school-tag">school</span>' : '') +
+          (a.unverified ? '<span class="unverified" title="Not fully documented on the wiki - treat as unconfirmed">&#9888;</span>' : '') +
+        '</div>' +
         '<div class="stat-ctrl">' +
           '<button class="step" data-abildec="' + a.id + '"' + (r <= 0 ? ' disabled' : '') + '>&minus;</button>' +
           '<span class="pips">' + pips + '</span>' +
