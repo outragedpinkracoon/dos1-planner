@@ -92,8 +92,27 @@ window.DOS_PRESETS = {
       talents:['Comeback Kid','Opportunist','What a Rush'],
       skills:['Battering Ram','Crushing Fist','Dust Devil','Helping Hand','Melee Power Stance'] },
 
+    // NOTE: companion sheets are hand-authored and do not obey player creation
+    // rules. Jahan is 1 attribute point over the level-3 budget, Bairdotr is 1
+    // ability point over, Wolgraff is 2 over and has Strength 4 - below the base
+    // 5 a player character cannot go under. Values are left exactly as published;
+    // the app displays the overspend rather than inventing corrections.
+    { id:'bairdotr', name:'Bairdotr', joinLevel:3, base:'ranger',
+      blurb:'Recruited from the jail near the Legion Headquarters, Cyseal. Bow ranger and loremaster.',
+      attrsTotal:{strength:5,dexterity:7,intelligence:5,constitution:7,speed:6,perception:6},
+      abilities:{bow:1,tenebrium:1,loremaster:2,expert_marksman:2},
+      talents:['Arrow Recovery','Bully','Stench'],
+      skills:['Ricochet','Treat Poisoning','Ranged Power Stance'] },
+
+    { id:'wolgraff', name:'Wolgraff', joinLevel:3, base:'rogue',
+      blurb:'Recruited in the tunnels under the cemetery, Cyseal. Mute dual-dagger rogue.',
+      attrsTotal:{strength:4,dexterity:7,intelligence:5,constitution:5,speed:8,perception:7},
+      abilities:{dual_wielding:2,scoundrel:2,lockpicking:1,pickpocketing:1,sneaking:1},
+      talents:['Back-Stabber','Light Stepper','Escapist'],
+      skills:["Razor's Edge",'Fast Track','Walk in Shadows','Cloak and Dagger'] },
+
     { id:'jahan', name:'Jahan', joinLevel:3, base:'wizard',
-      blurb:'Recruited in Cyseal (Evelyn\'s quest line area). Air and water mage.',
+      blurb:'Recruited in Cyseal (Evelyn\'s quest line area). Air and water mage. Note: his published attributes total one point over the level-3 budget.',
       attrsTotal:{strength:5,dexterity:5,intelligence:9,constitution:7,speed:5,perception:6},
       abilities:{willpower:1,aerotheurge:2,hydrosophist:2},
       talents:['Elemental Affinity','Far Out Man','Scientist'],

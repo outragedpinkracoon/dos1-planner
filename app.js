@@ -22,7 +22,9 @@ function blankState() {
     abilities: {},   // id -> rank
     talents: [],     // names
     skills: [],      // learned skill names
-    granted: []      // preset-given skills - the game grants these regardless of slots
+    granted: [],     // preset-given skills - the game grants these regardless of slots
+    grantedTalents: [], // companion talents that bypass their prerequisites
+    attrFloor: null  // per-attribute minimum; companions can start below the base 5
   };
 }
 
@@ -41,6 +43,8 @@ function load() {
     base.talents = Array.isArray(s.talents) ? s.talents : [];
     base.skills = Array.isArray(s.skills) ? s.skills : [];
     base.granted = Array.isArray(s.granted) ? s.granted : [];
+    base.grantedTalents = Array.isArray(s.grantedTalents) ? s.grantedTalents : [];
+    base.attrFloor = s.attrFloor || null;
     return base;
   } catch (e) { return blankState(); }
 }
@@ -58,7 +62,7 @@ function attrTotal() {
 }
 function attrSpent() {
   return R.attributes.list.reduce(function (sum, a) {
-    return sum + (state.attrs[a.id] - R.attributes.base);
+    return sum + (state.attrs[a.id] - attrFloor(a.id));
   }, 0);
 }
 
@@ -86,6 +90,11 @@ function talSpent() { return state.talents.length; }
 
 function rank(id) { return state.abilities[id] || 0; }
 
+function attrFloor(id) {
+  return (state.attrFloor && typeof state.attrFloor[id] === 'number')
+    ? state.attrFloor[id] : R.attributes.base;
+}
+
 // ---------------------------------------------------------------- talents
 function talentMet(t) {
   var q = t.req;
@@ -108,8 +117,11 @@ function talentMet(t) {
 
 // Dropping an ability rank or a level can invalidate an already-picked talent.
 // Drop those rather than leave an illegal build on screen.
+function isGrantedTalent(n) { return state.grantedTalents.indexOf(n) >= 0; }
+
 function pruneTalents() {
   var kept = state.talents.filter(function (name) {
+    if (isGrantedTalent(name)) return true;
     var t = TALENTS.find(function (x) { return x.name === name; });
     return t ? talentMet(t).ok : false;
   });
@@ -226,7 +238,7 @@ function renderAttrs() {
   var left = attrTotal() - attrSpent();
   el.attrList.innerHTML = '';
   R.attributes.list.forEach(function (a) {
-    var v = state.attrs[a.id], base = R.attributes.base;
+    var v = state.attrs[a.id], base = attrFloor(a.id);
     var row = document.createElement('div');
     row.className = 'stat';
     row.innerHTML =
@@ -287,6 +299,7 @@ function renderTalents() {
   el.talentList.innerHTML = '';
   TALENTS.forEach(function (t) {
     var picked = state.talents.indexOf(t.name) >= 0,
+        grantedT = isGrantedTalent(t.name),
         met = talentMet(t),
         // locked = can't click it right now (and isn't already picked)
         locked = !picked && (!met.ok || left <= 0);
@@ -294,14 +307,16 @@ function renderTalents() {
     if (onlyAvail && locked) return;
 
     var node = document.createElement('div');
-    node.className = 'talent' + (picked ? ' picked' : '') + (locked ? ' locked' : '');
+    node.className = 'talent' + (picked ? ' picked' : '') + (grantedT ? ' granted' : '') +
+                     (locked ? ' locked' : '');
     node.dataset.talent = t.name;
     node.innerHTML =
       '<div class="talent-name">' + t.name +
+        (grantedT ? '<span class="granted-tag">given</span>' : '') +
         (t.unverified ? '<span class="unverified" title="Not listed on the fextralife talents table - treat as unconfirmed">&#9888;</span>' : '') +
       '</div>' +
       '<div class="talent-desc">' + t.desc + '</div>' +
-      (!met.ok ? '<div class="talent-req">' + met.why + '</div>' : '');
+      (!met.ok && !grantedT ? '<div class="talent-req">' + met.why + '</div>' : '');
     el.talentList.appendChild(node);
   });
 }
@@ -399,23 +414,44 @@ function renderAll() {
   el.levelOut.textContent = state.level;
   el.levelSlider.value = state.level;
   el.presetSelect.value = state.preset;
-  var p = PRESETS.classes.find(function (c) { return c.id === state.preset; });
+  var p = findPreset(state.preset);
   el.presetBlurb.textContent = p ? p.blurb : '';
   save();
 }
 
 // ---------------------------------------------------------------- actions
+function findPreset(id) {
+  return PRESETS.classes.find(function (c) { return c.id === id; }) ||
+         PRESETS.companions.find(function (c) { return c.id === id; });
+}
+
 function applyPreset(id) {
-  var p = PRESETS.classes.find(function (c) { return c.id === id; });
+  var p = findPreset(id);
   if (!p) return;
   var fresh = blankState();
   fresh.preset = id;
-  fresh.level = state.level;                       // keep where you were
-  Object.keys(p.attrs || {}).forEach(function (k) {
-    fresh.attrs[k] = R.attributes.base + p.attrs[k];
-  });
+
+  // Companions arrive at a fixed level with their points already committed, and
+  // their attributes are absolute rather than bonuses on top of the base 5.
+  if (p.attrsTotal) {
+    fresh.level = p.joinLevel;
+    fresh.attrFloor = {};
+    Object.keys(p.attrsTotal).forEach(function (k) {
+      fresh.attrs[k] = p.attrsTotal[k];
+      // Wolgraff starts at Strength 4, under the base 5, so his floor is his own value.
+      fresh.attrFloor[k] = Math.min(p.attrsTotal[k], R.attributes.base);
+    });
+  } else {
+    fresh.level = state.level;                     // keep where you were
+    Object.keys(p.attrs || {}).forEach(function (k) {
+      fresh.attrs[k] = R.attributes.base + p.attrs[k];
+    });
+  }
   fresh.abilities = Object.assign({}, p.abilities || {});
   fresh.talents = (p.talents || []).slice();
+  // Companion talents ignore the normal prerequisites - Madora has Comeback Kid
+  // without the Willpower 5 it would otherwise need. Mark them so pruning spares them.
+  fresh.grantedTalents = p.attrsTotal ? (p.talents || []).slice() : [];
   fresh.skills = (p.skills || []).slice();
   // A class hands you its starting skills even when your rank grants no slot for
   // them - Fighter opens with Whirlwind at Man-at-Arms 1, which has no adept slot.
@@ -434,7 +470,7 @@ function bind() {
 
   // preset
   el.presetSelect.addEventListener('change', function () {
-    var p = PRESETS.classes.find(function (c) { return c.id === this.value; }, this);
+    var p = findPreset(this.value);
     el.presetBlurb.textContent = p ? p.blurb : '';
   });
   el.applyPreset.addEventListener('click', function () {
@@ -447,7 +483,7 @@ function bind() {
     var inc = b.dataset.inc, dec = b.dataset.dec;
     if (inc && attrTotal() - attrSpent() > 0 && state.attrs[inc] < R.attributes.softCap)
       state.attrs[inc]++;
-    if (dec && state.attrs[dec] > R.attributes.base)
+    if (dec && state.attrs[dec] > attrFloor(dec))
       state.attrs[dec]--;
     renderAll();
   });
@@ -471,8 +507,9 @@ function bind() {
   // talents
   el.talentList.addEventListener('click', function (e) {
     var node = e.target.closest('.talent'); if (!node) return;
-    var name = node.dataset.talent,
-        i = state.talents.indexOf(name);
+    var name = node.dataset.talent;
+    if (isGrantedTalent(name)) return;              // companion-given, not yours to drop
+    var i = state.talents.indexOf(name);
     if (i >= 0) { state.talents.splice(i, 1); renderAll(); return; }
     if (node.classList.contains('locked')) return;
     state.talents.push(name);
@@ -515,11 +552,23 @@ function init() {
 
   el.levelSlider.max = R.planLevel;
 
+  var gClasses = document.createElement('optgroup');
+  gClasses.label = 'Classes';
   PRESETS.classes.forEach(function (c) {
     var o = document.createElement('option');
     o.value = c.id; o.textContent = c.name;
-    el.presetSelect.appendChild(o);
+    gClasses.appendChild(o);
   });
+  el.presetSelect.appendChild(gClasses);
+
+  var gComp = document.createElement('optgroup');
+  gComp.label = 'Companions (join at level 3)';
+  PRESETS.companions.forEach(function (c) {
+    var o = document.createElement('option');
+    o.value = c.id; o.textContent = c.name;
+    gComp.appendChild(o);
+  });
+  el.presetSelect.appendChild(gComp);
 
   R.notes.forEach(function (n) {
     var li = document.createElement('li');

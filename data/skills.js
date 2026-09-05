@@ -133,6 +133,7 @@ window.DOS_SKILLS = [
 {s:'scoundrel',t:'novice',n:'Fast Track',ap:2,cd:12,rank:1,attr:{dexterity:8},d:'Become Hastened for 2 turns. Cooldown -1 at DEX 10 and 15.',src:'Rogue starting skill; Cyseal vendors.'},
 {s:'scoundrel',t:'novice',n:'Lacerate',ap:0,cd:5,rank:1,attr:{dexterity:8},d:'Dagger required. Inflict Bleeding for 3 turns, dealing 150% weapon (slashing) damage. Costs a normal weapon attack.',src:'Rogue starting skill; Cyseal vendors.'},
 {s:'scoundrel',t:'novice',n:'Precise Incision',ap:0,cd:5,rank:1,attr:{dexterity:8},d:'Dagger required. Weaken a target for 2 turns, dealing 150% weapon (slashing) damage. Costs a normal weapon attack.',src:'Cyseal vendors.'},
+{s:'scoundrel',t:'novice',n:"Razor's Edge",ap:4,cd:5,rank:1,attr:{dexterity:8},d:'Dagger attack dealing slashing damage to nearby enemies. Stats unconfirmed - not listed on the fextralife tier pages.',src:'Wolgraff starting skill.',unverified:true},
 {s:'scoundrel',t:'novice',n:'Walk in Shadows',ap:3,cd:10,rank:1,attr:{dexterity:8},d:'Become one with the shadows: Invisible for 5 turns.',src:'Rogue/Shadowblade starting skill; Cyseal vendors.'},
 {s:'scoundrel',t:'novice',n:'Adrenaline',ap:0,cd:5,rank:1,attr:{dexterity:8},d:'Borrow Action Points from your next turn: +50% AP now, -75% next turn. Character level 3+.',src:'Cyseal vendors.'},
 {s:'scoundrel',t:'novice',n:'Trip',ap:4,cd:10,rank:1,attr:{dexterity:8},d:'Knock down a target, dealing crushing damage. Knocked Down for 2 turns. Character level 3+.',src:'Cyseal vendors.'},
