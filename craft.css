@@ -1,0 +1,170 @@
+/* Crafting page only. Inherits every variable and control style from app.css. */
+
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.linkbtn { text-decoration: none; display: inline-block; }
+
+/* ---------- mode switcher ---------- */
+.modebar {
+  display: flex; gap: 8px;
+  padding: 12px 14px 0;
+}
+.mode {
+  flex: 1; text-align: left; cursor: pointer;
+  padding: 9px 12px; border-radius: 6px;
+  background: var(--panel); color: var(--dim);
+  border: 1px solid var(--line);
+  font: inherit; font-weight: 500;
+}
+.mode em {
+  display: block; font-style: normal; font-size: 11px;
+  color: var(--dim); font-weight: 400; margin-top: 2px;
+}
+.mode:hover { color: var(--text); border-color: var(--dim); }
+.mode.on { border-color: var(--accent); color: var(--accent); background: var(--panel-2); }
+.mode.on em { color: var(--dim); }
+
+.craft-layout { grid-template-columns: 300px minmax(0,1fr); }
+@media (max-width: 1100px) { .craft-layout { grid-template-columns: 1fr; } }
+
+.panel h2.spacer { margin-top: 22px; }
+.empty { color: var(--dim); font-size: 12.5px; font-style: italic; margin: 6px 0; }
+
+/* ---------- tools ---------- */
+.tool-rows { display: flex; flex-wrap: wrap; gap: 4px; }
+.tool {
+  font-size: 11.5px; padding: 3px 7px; border-radius: 3px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--dim); cursor: pointer; user-select: none;
+}
+.tool:hover { color: var(--text); }
+.tool.on { border-color: var(--accent); color: var(--accent); }
+.tool input { display: none; }
+
+/* ---------- bag ---------- */
+.suggest { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.suggest button {
+  display: flex; justify-content: space-between; gap: 8px;
+  text-align: left; font: inherit; font-size: 12px; cursor: pointer;
+  padding: 5px 8px; border-radius: 3px;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+}
+.suggest button:hover { border-color: var(--accent); color: var(--accent); }
+.suggest button span { color: var(--dim); font-size: 11px; white-space: nowrap; }
+
+.bag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; padding: 3px 7px; border-radius: 3px;
+  background: var(--panel-2); border: 1px solid var(--accent-dim);
+  color: var(--text); cursor: pointer;
+}
+.chip:hover { border-color: var(--bad); }
+.chip i { font-style: normal; color: var(--dim); }
+.chip:hover i { color: var(--bad); }
+
+/* ---------- recipe cards ---------- */
+.filter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.filter-row .select { width: auto; flex: 0 0 180px; }
+
+.recipe-list { display: flex; flex-direction: column; gap: 5px; }
+.recipe {
+  padding: 8px 10px; border-radius: 4px;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.recipe.over { opacity: .5; }
+.recipe-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.recipe-head b { font-size: 13px; }
+.recipe-body {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  margin-top: 5px; font-size: 12px;
+}
+.recipe-body > i { color: var(--dim); font-style: normal; }
+
+.slot { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.slot u { text-decoration: none; color: var(--dim); font-size: 10.5px; }
+.ing {
+  padding: 2px 6px; border-radius: 3px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line); color: var(--dim);
+}
+.ing:hover { border-color: var(--accent); color: var(--accent); }
+.ing.got { color: var(--ok); border-color: var(--ok); }
+.ing.tool { font-style: italic; }
+
+.type-tag {
+  font-size: 10px; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--dim); border: 1px solid var(--line);
+  padding: 1px 5px; border-radius: 3px;
+}
+.tool-tag { color: var(--accent); border-color: var(--accent-dim); }
+
+.lvl {
+  margin-left: auto; font-size: 11px; color: var(--dim);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.lvl.short { color: var(--bad); }
+.lvl.none { font-style: italic; }
+.warn-flag { color: var(--warn); cursor: help; }
+
+.need { margin-top: 5px; font-size: 11.5px; color: var(--warn); }
+.need em { font-style: normal; color: var(--text); }
+
+/* ---------- keep mode ---------- */
+.keep-list { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+.keep {
+  padding: 8px 10px; border-radius: 4px;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.keep-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.keep-head b { font-size: 13px; }
+.uses { margin-left: auto; font-size: 11px; color: var(--dim); }
+.keep-body { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.feeds {
+  font-size: 11.5px; padding: 2px 6px; border-radius: 3px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line); color: var(--dim);
+}
+.feeds:hover { border-color: var(--accent); color: var(--accent); }
+.feeds.more { cursor: default; font-style: italic; }
+
+/* ---------- how mode ---------- */
+.how-result { margin-top: 10px; }
+.tree-root { margin-bottom: 18px; }
+.tree-root h3 {
+  margin: 0 0 6px; font-size: 13px; color: var(--accent);
+}
+.branch {
+  border-left: 2px solid var(--line);
+  padding-left: 10px; margin-bottom: 8px;
+}
+.branch-head { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+.node { font-size: 12px; padding: 2px 0; }
+.node.got .node-name { color: var(--ok); }
+.node.cycle { color: var(--dim); font-style: italic; }
+.node-name { margin-right: 6px; }
+.raw { font-size: 10.5px; color: var(--dim); font-style: italic; }
+.sub { margin-left: 12px; padding-left: 8px; border-left: 1px dashed var(--line); }
+
+/* Same inputs, better result as the skill rises. */
+.ladder {
+  display: flex; flex-wrap: wrap; gap: 3px;
+  margin-top: 6px; padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+.rung {
+  font-size: 11px; padding: 1px 6px; border-radius: 3px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--dim);
+}
+.rung b { color: var(--text); font-variant-numeric: tabular-nums; margin-right: 3px; }
+.rung.locked { opacity: .45; }
+.rung.here { border-color: var(--accent); color: var(--accent); }
+.rung.here b { color: var(--accent); }
+.rung-note { font-size: 10.5px; color: var(--dim); font-style: italic; }
+.node.repeat { color: var(--dim); font-size: 11px; font-style: italic; }
+.got-note { color: var(--ok); font-style: normal; }
+.plus { color: var(--dim); font-size: 11px; margin: 1px 0 1px 2px; }
+.node .raw { margin-left: 6px; }
+
+/* app.css styles .toggle as a block row; on the filter bar it sits inline. */
+.toggle.inline {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 0; white-space: nowrap;
+}

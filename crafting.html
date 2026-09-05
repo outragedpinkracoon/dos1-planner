@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DOS1 EE Crafting</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="craft.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Divinity: Original Sin EE — Crafting</h1>
+  <div class="topbar-right">
+    <a href="index.html" class="btn-ghost linkbtn">Build planner</a>
+    <button id="clearBag" class="btn-ghost" type="button">Empty bag</button>
+  </div>
+</header>
+
+<nav class="modebar">
+  <button class="mode on" data-mode="make" type="button">
+    What can I make?
+    <em>tick what you are carrying</em>
+  </button>
+  <button class="mode" data-mode="keep" type="button">
+    What should I keep?
+    <em>look up any junk item</em>
+  </button>
+  <button class="mode" data-mode="how" type="button">
+    How do I make X?
+    <em>full ingredient tree</em>
+  </button>
+</nav>
+
+<div class="layout craft-layout">
+
+  <!-- ============ LEFT: the bag + skills ============ -->
+  <aside class="col col-left">
+    <section class="panel">
+      <h2>Crafting skills</h2>
+      <div id="skillRows" class="stat-list"></div>
+      <p class="hint">Recipes above your level are shown greyed, never hidden.</p>
+    </section>
+
+    <section class="panel">
+      <h2>At the bench</h2>
+      <div id="toolRows" class="tool-rows"></div>
+      <p class="hint">Stations are not consumed. A knife or bucket is
+        an ordinary bag item &mdash; some recipes eat it.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Your bag <span class="sub" id="bagCount"></span></h2>
+      <input type="search" id="bagSearch" class="select search" placeholder="Add an item&hellip;" autocomplete="off">
+      <div id="bagSuggest" class="suggest"></div>
+      <div id="bagList" class="bag-list"></div>
+      <p id="bagEmpty" class="hint">Bag is empty. Type above to add what you are carrying.</p>
+    </section>
+  </aside>
+
+  <!-- ============ RIGHT: the answer ============ -->
+  <main class="col col-mid">
+
+    <!-- mode: what can I make -->
+    <section class="panel mode-panel" data-panel="make">
+      <h2>Craftable now <span class="sub" id="makeCount"></span></h2>
+      <div class="filter-row">
+        <select id="typeFilter" class="select"></select>
+        <label class="toggle inline">
+          <input type="checkbox" id="hideOverLevel"> Hide above my skill
+        </label>
+      </div>
+      <div id="makeList" class="recipe-list"></div>
+
+      <h2 class="spacer">One ingredient short <span class="sub" id="nearCount"></span></h2>
+      <p class="hint">Recipes you could finish by picking up a single item.</p>
+      <div id="nearList" class="recipe-list"></div>
+    </section>
+
+    <!-- mode: what should I keep -->
+    <section class="panel mode-panel" data-panel="keep" hidden>
+      <h2>What is this junk for?</h2>
+      <input type="search" id="keepSearch" class="select search" placeholder="Search any item&hellip;" autocomplete="off">
+      <div id="keepList" class="keep-list"></div>
+    </section>
+
+    <!-- mode: how do I make X -->
+    <section class="panel mode-panel" data-panel="how" hidden>
+      <h2>How do I make it?</h2>
+      <input type="search" id="howSearch" class="select search" placeholder="Search a result&hellip;" autocomplete="off">
+      <div id="howResult" class="how-result"></div>
+    </section>
+
+  </main>
+</div>
+
+<script src="data/recipes.js"></script>
+<script src="craft.js"></script>
+</body>
+</html>
