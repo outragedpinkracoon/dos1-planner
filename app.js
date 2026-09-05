@@ -275,9 +275,21 @@ function slotsFor(id) {
 function isGranted(n) { return state.granted.indexOf(n) >= 0; }
 
 // Granted skills sit outside the slot economy, so they are not counted here.
+// This is the number the slot cap is enforced against - see countIn for the
+// number to show the user.
 function knownIn(schoolId, tier) {
   return state.skills.filter(function (n) {
     if (isGranted(n)) return false;
+    var s = skillByName(n);
+    return s && s.s === schoolId && s.t === tier;
+  }).length;
+}
+
+// Every skill you actually have in a school/tier, class-granted included.
+// Display only: the x of the "x/y" slot readout, so a Fighter opening with
+// Whirlwind reads 1/0 adept rather than pretending the skill isn't there.
+function countIn(schoolId, tier) {
+  return state.skills.filter(function (n) {
     var s = skillByName(n);
     return s && s.s === schoolId && s.t === tier;
   }).length;
@@ -520,11 +532,11 @@ function renderSkills() {
     '</div>';
 
     var slotRow = '<div class="slots">' + TIERS.map(function (t) {
-      var cap = slots[t], have = knownIn(ab.id, t);
+      var cap = slots[t], have = countIn(ab.id, t);
       return '<span class="slot' + (cap === 0 ? ' none' : '') +
-             (cap > 0 && have >= cap ? ' full' : '') + '">' +
+             (cap > 0 && knownIn(ab.id, t) >= cap ? ' full' : '') + '">' +
         '<span class="slot-tier">' + t + '</span>' +
-        '<span class="slot-num">' + (cap === 0 ? '&mdash;' : have + '/' + cap) + '</span>' +
+        '<span class="slot-num">' + (cap === 0 && !have ? '&mdash;' : have + '/' + cap) + '</span>' +
       '</span>';
     }).join('') + '</div>';
 
@@ -938,6 +950,28 @@ function init() {
   bind();
   renderAll();
 }
+
+// ------------------------------------------------------------- test hook
+// The whole app is one IIFE with no module system, so the pure rules
+// functions are otherwise unreachable from a test page. Exposing them
+// costs nothing at runtime and changes no behaviour: tests drive them by
+// swapping in a state object via setState, exactly as the UI does.
+window.DOS_TEST = {
+  blankState: blankState,
+  setState: function (s) { state = s; },
+  getState: function () { return state; },
+  clamp: clamp, escapeHtml: escapeHtml,
+  attrTotal: attrTotal, attrSpent: attrSpent,
+  abilTotal: abilTotal, abilSpent: abilSpent, rankCost: rankCost,
+  talTotal: talTotal, talSpent: talSpent,
+  rank: rank, effRank: effRank, effAttr: effAttr, attrFloor: attrFloor,
+  hasTalent: hasTalent, talentAbilFloor: talentAbilFloor,
+  talentMet: talentMet, pruneTalents: pruneTalents,
+  slotsFor: slotsFor, knownIn: knownIn, countIn: countIn,
+  skillByName: skillByName, skillLock: skillLock,
+  apPenalty: apPenalty, attrShortfall: attrShortfall,
+  pruneSkills: pruneSkills
+};
 
 document.addEventListener('DOMContentLoaded', init);
 })();
