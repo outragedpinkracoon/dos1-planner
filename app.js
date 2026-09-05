@@ -328,6 +328,31 @@ function renderPools() {
   });
 }
 
+// The effective value is what every requirement check reads, so it is the number
+// shown large; the points-only base drops to a subscript, and only when gear
+// actually differs from it.
+function valStack(eff, base, g, boosted) {
+  return '<span class="stat-val' + (boosted ? ' boosted' : '') + (g ? ' geared' : '') + '">' +
+    eff + (g ? '<i class="base-sub">' + base + '</i>' : '') +
+  '</span>';
+}
+
+// One chip instead of a second stepper pair: click adds, the minus only exists
+// once there is something to take away. The column is always present so
+// toggling gear never reflows the row.
+function gearChip(id, g, incAttr, decAttr, atCap) {
+  if (!state.showGear) return '<div class="gear-ctrl"></div>';
+  return '<div class="gear-ctrl">' +
+    (g ? '<button class="step gear" data-' + decAttr + '="' + id + '">&minus;</button>'
+       : '<span class="gear-spacer"></span>') +
+    '<button class="chip' + (g ? ' on' : '') + '" data-' + incAttr + '="' + id + '"' +
+      (atCap ? ' disabled' : '') +
+      ' title="Bonus from equipment - never costs points">' +
+      (g ? '+' + g : '+') +
+    '</button>' +
+  '</div>';
+}
+
 function renderAttrs() {
   var left = attrTotal() - attrSpent();
   el.attrList.innerHTML = '';
@@ -335,22 +360,16 @@ function renderAttrs() {
     var v = state.attrs[a.id], base = attrFloor(a.id),
         g = gearAttr(a.id), eff = v + g;
     var row = document.createElement('div');
-    row.className = 'stat' + (state.showGear ? ' with-gear' : '');
+    row.className = 'stat';
     row.innerHTML =
       '<div class="stat-name">' + a.name + '</div>' +
       '<div class="stat-ctrl">' +
         '<button class="step" data-dec="' + a.id + '"' + (v <= base ? ' disabled' : '') + '>&minus;</button>' +
-        '<span class="stat-val' + (v > base ? ' boosted' : '') + '">' + v + '</span>' +
+        valStack(eff, v, g, v > base) +
         '<button class="step" data-inc="' + a.id + '"' +
           (v >= R.attributes.softCap || left <= 0 ? ' disabled' : '') + '>+</button>' +
       '</div>' +
-      (state.showGear ?
-        '<div class="gear-ctrl">' +
-          '<button class="step gear" data-geardec="' + a.id + '"' + (g <= 0 ? ' disabled' : '') + '>&minus;</button>' +
-          '<span class="gear-val' + (g ? ' on' : '') + '">' + (g ? '+' + g : '&ndash;') + '</span>' +
-          '<button class="step gear" data-gearinc="' + a.id + '">+</button>' +
-          '<span class="eff-val' + (g ? ' on' : '') + '">' + eff + '</span>' +
-        '</div>' : '') +
+      gearChip(a.id, g, 'gearinc', 'geardec') +
       '<div class="stat-desc">' + a.desc + '</div>';
     el.attrList.appendChild(row);
   });
@@ -381,7 +400,7 @@ function renderAbilities() {
       }
 
       var row = document.createElement('div');
-      row.className = 'abil' + (state.showGear ? ' with-gear' : '');
+      row.className = 'abil';
       row.innerHTML =
         '<div class="abil-name">' + a.name +
           (a.school ? '<span class="school-tag">school</span>' : '') +
@@ -393,13 +412,8 @@ function renderAbilities() {
           '<button class="step" data-abilinc="' + a.id + '"' + (canUp ? '' : ' disabled') + '>+</button>' +
           (r < R.abilityPoints.maxRank ? '<span class="cost-note">' + up + 'p</span>' : '') +
         '</div>' +
-        (state.showGear ?
-          '<div class="gear-ctrl">' +
-            '<button class="step gear" data-gearabildec="' + a.id + '"' + (g <= 0 ? ' disabled' : '') + '>&minus;</button>' +
-            '<span class="gear-val' + (g ? ' on' : '') + '">' + (g ? '+' + g : '&ndash;') + '</span>' +
-            '<button class="step gear" data-gearabilinc="' + a.id + '">+</button>' +
-            '<span class="eff-val' + (g ? ' on' : '') + '">' + eff + '</span>' +
-          '</div>' : '') +
+        gearChip(a.id, g, 'gearabilinc', 'gearabildec',
+                 eff >= R.abilityPoints.maxRank) +
         '<div class="abil-desc">' + a.desc + '</div>';
       wrap.appendChild(row);
     });
@@ -566,9 +580,9 @@ function renderAll() {
   el.gearToggle.checked = state.showGear;
   el.gearSlotsToggle.checked = state.gearSlots;
   el.gearSlotsWrap.style.display = state.showGear ? '' : 'none';
-  el.gearClear.style.display =
-    state.showGear && (Object.keys(state.gearAttrs).length || Object.keys(state.gearAbils).length)
-      ? '' : 'none';
+  // stays mounted and merely disables, so the bar never reflows
+  el.gearClear.disabled =
+    !(Object.keys(state.gearAttrs).length || Object.keys(state.gearAbils).length);
   var p = findPreset(state.preset);
   el.presetBlurb.textContent = p ? p.blurb : '';
   save();
@@ -714,7 +728,10 @@ function bind() {
     state.gearSlots = el.gearSlotsToggle.checked;
     renderAll();
   });
-  el.gearClear.addEventListener('click', function () {
+  el.gearClear.addEventListener('click', function (e) {
+    // it lives inside the toggle's <label>, so stop the click reaching the checkbox
+    e.preventDefault();
+    e.stopPropagation();
     state.gearAttrs = {};
     state.gearAbils = {};
     renderAll();

@@ -322,37 +322,52 @@ body {
 
 /* ================= gear bonuses ================= */
 .gear-bar {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  margin-bottom: 10px; padding-bottom: 9px;
-  border-bottom: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
-.toggle.inline { display: inline-block; margin-bottom: 0; }
-.btn-ghost.tiny { padding: 3px 8px; font-size: 10.5px; margin-left: auto; }
+.gear-bar .toggle { margin-bottom: 0; display: flex; align-items: center; }
+/* a rules flag, not a view control - deliberately quieter than the toggle above */
+.gear-bar .sub-rule {
+  padding-left: 18px; font-size: 11px; color: var(--dim);
+  cursor: help;
+}
+.btn-ghost.tiny { padding: 2px 7px; font-size: 10px; margin-left: auto; }
+.btn-ghost.tiny:disabled { opacity: .3; cursor: default; }
+.btn-ghost.tiny:disabled:hover { color: var(--dim); border-color: var(--line); }
 
-/* rows grow a fourth column when gear is showing */
-.stat.with-gear { grid-template-columns: 120px 92px 108px 1fr; }
-.abil.with-gear { grid-template-columns: 150px 120px 108px 1fr; }
+/* The gear column is always in the grid, empty when gear is off, so ticking
+   the toggle never reflows the rows. */
+.stat { grid-template-columns: 120px 92px 46px 1fr; }
+.abil { grid-template-columns: 150px 120px 46px 1fr; }
 
-.gear-ctrl { display: flex; align-items: center; gap: 4px; }
-.step.gear { width: 20px; height: 20px; font-size: 13px; opacity: .8; }
+.gear-ctrl { display: flex; align-items: center; gap: 3px; justify-content: flex-end; }
+.gear-spacer { width: 20px; }
+.step.gear { width: 20px; height: 20px; font-size: 13px; opacity: .75; }
 .step.gear:hover:not(:disabled) { opacity: 1; }
 
-.gear-val {
-  min-width: 20px; text-align: center;
-  font-size: 11px; color: var(--dim);
-  font-variant-numeric: tabular-nums;
+/* one chip replaces the old second stepper pair */
+.chip {
+  min-width: 23px; height: 20px; padding: 0 5px;
+  background: transparent; color: var(--dim);
+  border: 1px dashed var(--line); border-radius: 10px;
+  font-size: 11px; font-weight: 600; line-height: 1;
+  font-variant-numeric: tabular-nums; cursor: pointer;
 }
-.gear-val.on { color: #6ab0c9; }
+.chip:hover:not(:disabled) { color: #6ab0c9; border-color: #6ab0c9; }
+.chip.on {
+  background: #1e2c33; color: #6ab0c9;
+  border-style: solid; border-color: #35606f;
+}
+.chip:disabled { opacity: .3; cursor: not-allowed; }
 
-.eff-val {
-  min-width: 24px; margin-left: 4px;
-  padding: 1px 5px; border-radius: 3px;
-  background: var(--panel-2);
-  font-size: 11.5px; font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--dim);
+/* effective value large, points-only base as a subscript beside it */
+.stat-val.geared { color: #6ab0c9; }
+.base-sub {
+  margin-left: 3px; font-style: normal;
+  font-size: 9.5px; font-weight: 500; color: var(--dim);
+  vertical-align: sub;
 }
-.eff-val.on { color: #6ab0c9; background: #1e2c33; }
 
 /* a pip filled by gear rather than by spent points */
 .pip.gear { background: #2f5766; border-color: #6ab0c9; }
